@@ -39,7 +39,6 @@ module.exports = {
         // Add new authentication components
         "./AuthProvider": "./src/AuthContext",
         "./LoginComponent": "./src/LoginComponent", 
-        // "./ProtectedComponent": "./src/ProtectedComponent",
       },
       shared: {
         react: { 

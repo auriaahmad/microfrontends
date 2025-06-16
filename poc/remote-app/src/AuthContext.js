@@ -1,4 +1,4 @@
-// src/AuthContext.js - Remote App (with debug logs)
+// src/AuthContext.js - Clean Remote App (Authentication Only)
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
@@ -18,14 +18,26 @@ export const AuthProvider = ({ children }) => {
   const [accessToken, setAccessToken] = useState(null);
   const [refreshToken, setRefreshToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [logs, setLogs] = useState([]);
+
+  // Enhanced logging functionality
+  const addLog = (message) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs(prev => [...prev, `${timestamp}: ${message}`]);
+    console.log(`🔐 Remote Auth: ${message}`);
+  };
+
+  const clearLogs = () => {
+    setLogs([]);
+    addLog('🧹 Logs cleared');
+  };
 
   // Secure token sharing with host apps
   const shareTokenWithHost = (token, user) => {
-    console.log('🔄 Attempting to share token with host apps:', { token: token?.substring(0, 20) + '...', user });
+    addLog(`🔄 Sharing token with host apps`);
 
     // Share with parent window (for iframe scenario)
     if (window.parent !== window) {
-      console.log('📤 Sharing token via parent window (iframe mode)');
       window.parent.postMessage({
         type: 'AUTH_TOKEN_UPDATE',
         payload: {
@@ -38,7 +50,6 @@ export const AuthProvider = ({ children }) => {
     }
 
     // Share with same window (for module federation scenario)
-    console.log('📤 Sharing token via same window (module federation mode)');
     window.postMessage({
       type: 'AUTH_TOKEN_UPDATE',
       payload: {
@@ -48,15 +59,25 @@ export const AuthProvider = ({ children }) => {
         source: 'remoteCounter'
       }
     }, '*');
+
+    // Store in sessionStorage for host app access
+    sessionStorage.setItem('jwt_token', token);
+    sessionStorage.setItem('user_data', JSON.stringify(user));
+  };
+
+  // Enhanced storage management
+  const clearStorage = () => {
+    localStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('jwt_token');
+    sessionStorage.removeItem('user_data');
+    addLog('🧹 All storage cleared');
   };
 
   // Listen for token requests from host apps
   useEffect(() => {
     const handleMessage = (event) => {
-      console.log('📨 Received message in remote app:', event.data);
-
       if (event.data.type === 'REQUEST_AUTH_TOKEN' && accessToken) {
-        console.log('🔑 Host requested token, sharing existing token');
+        addLog('🔑 Host requested token, sharing existing token');
         shareTokenWithHost(accessToken, user);
       }
     };
@@ -66,7 +87,7 @@ export const AuthProvider = ({ children }) => {
   }, [accessToken, user]);
 
   const login = async (username, password) => {
-    console.log('🔐 Attempting login for:', username);
+    addLog(`🔐 Attempting login for: ${username}`);
 
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -77,18 +98,16 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ username, password }),
       });
 
-      console.log('📡 Login response status:', response.status);
       const data = await response.json();
-      console.log('📄 Login response data:', data);
 
       if (response.ok) {
-        console.log('✅ Login successful, setting state and sharing token');
+        addLog(`✅ Login successful for: ${data.user.username}`);
 
         setUser(data.user);
         setAccessToken(data.accessToken);
         setRefreshToken(data.refreshToken);
 
-        // Share token with host apps
+        // Share token with host apps and store in session
         shareTokenWithHost(data.accessToken, data.user);
 
         // Store refresh token securely
@@ -96,17 +115,17 @@ export const AuthProvider = ({ children }) => {
 
         return { success: true, user: data.user };
       } else {
-        console.log('❌ Login failed:', data.error);
+        addLog(`❌ Login failed: ${data.error}`);
         return { success: false, error: data.error };
       }
     } catch (error) {
-      console.error('🚨 Network error during login:', error);
+      addLog(`🚨 Network error during login: ${error.message}`);
       return { success: false, error: 'Network error: ' + error.message };
     }
   };
 
   const logout = async () => {
-    console.log('🚪 Logging out...');
+    addLog('🚪 Logging out...');
 
     try {
       if (refreshToken) {
@@ -119,16 +138,14 @@ export const AuthProvider = ({ children }) => {
         });
       }
     } catch (error) {
-      console.error('Logout error:', error);
+      addLog(`❌ Logout error: ${error.message}`);
     } finally {
       setUser(null);
       setAccessToken(null);
       setRefreshToken(null);
-      localStorage.removeItem('refreshToken');
+      clearStorage();
 
       // Notify host apps of logout
-      console.log('📤 Notifying host apps of logout');
-
       if (window.parent !== window) {
         window.parent.postMessage({
           type: 'AUTH_LOGOUT',
@@ -140,6 +157,8 @@ export const AuthProvider = ({ children }) => {
         type: 'AUTH_LOGOUT',
         payload: { timestamp: Date.now() }
       }, '*');
+
+      addLog('✅ Logout completed');
     }
   };
 
@@ -148,6 +167,8 @@ export const AuthProvider = ({ children }) => {
     if (!storedRefreshToken) return false;
 
     try {
+      addLog('🔄 Refreshing access token...');
+      
       const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
         headers: {
@@ -165,13 +186,16 @@ export const AuthProvider = ({ children }) => {
 
         // Share new token with host apps
         shareTokenWithHost(data.accessToken, user);
+        addLog('✅ Token refresh successful');
 
         return true;
       } else {
+        addLog('❌ Token refresh failed, logging out');
         logout();
         return false;
       }
     } catch (error) {
+      addLog(`❌ Token refresh error: ${error.message}`);
       logout();
       return false;
     }
@@ -180,10 +204,10 @@ export const AuthProvider = ({ children }) => {
   // Auto-refresh token before expiration
   useEffect(() => {
     if (accessToken) {
-      console.log('⏰ Setting up token refresh timer');
+      addLog('⏰ Setting up token refresh timer');
       // JWT tokens expire in 15 minutes, refresh after 14 minutes
       const refreshInterval = setInterval(() => {
-        console.log('🔄 Auto-refreshing token');
+        addLog('🔄 Auto-refreshing token');
         refreshAccessToken();
       }, 14 * 60 * 1000);
 
@@ -192,14 +216,13 @@ export const AuthProvider = ({ children }) => {
   }, [accessToken]);
 
   // Initialize auth state on mount
-  // Initialize auth state on mount
   useEffect(() => {
     const initAuth = async () => {
-      console.log('🚀 Initializing auth state');
+      addLog('🚀 Remote app initializing auth state');
 
       const storedRefreshToken = localStorage.getItem('refreshToken');
       if (storedRefreshToken) {
-        console.log('🔑 Found stored refresh token, attempting to refresh');
+        addLog('🔑 Found stored refresh token, attempting to refresh');
 
         try {
           const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
@@ -213,7 +236,6 @@ export const AuthProvider = ({ children }) => {
           const data = await response.json();
 
           if (response.ok) {
-            console.log('✅ Token refresh successful:', data);
             setAccessToken(data.accessToken);
             setRefreshToken(data.refreshToken);
             localStorage.setItem('refreshToken', data.refreshToken);
@@ -228,57 +250,29 @@ export const AuthProvider = ({ children }) => {
 
               if (profileResponse.ok) {
                 const profileData = await profileResponse.json();
-                console.log('✅ User profile fetched:', profileData.user);
                 setUser(profileData.user);
-
-                // Share token with user data
                 shareTokenWithHost(data.accessToken, profileData.user);
-              } else {
-                console.error('❌ Failed to fetch user profile');
+                addLog(`✅ Auto-login successful for: ${profileData.user.username}`);
               }
             } catch (error) {
-              console.error('❌ Error fetching user profile:', error);
+              addLog(`❌ Error fetching user profile: ${error.message}`);
             }
           } else {
-            console.log('❌ Token refresh failed:', data);
+            addLog('❌ Token refresh failed on init');
             logout();
           }
         } catch (error) {
-          console.error('❌ Token refresh error:', error);
+          addLog(`❌ Init token refresh error: ${error.message}`);
           logout();
         }
       } else {
-        console.log('📝 No stored refresh token found');
+        addLog('📝 No stored tokens found');
       }
       setLoading(false);
     };
 
     initAuth();
   }, []);
-
-  const makeAuthenticatedRequest = async (url, options = {}) => {
-    const headers = {
-      ...options.headers,
-      'Authorization': `Bearer ${accessToken}`,
-    };
-
-    const response = await fetch(url, { ...options, headers });
-
-    if (response.status === 401) {
-      // Token might be expired, try to refresh
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        // Retry the request with new token
-        headers['Authorization'] = `Bearer ${accessToken}`;
-        return fetch(url, { ...options, headers });
-      } else {
-        logout();
-        throw new Error('Authentication failed');
-      }
-    }
-
-    return response;
-  };
 
   const value = {
     user,
@@ -287,7 +281,15 @@ export const AuthProvider = ({ children }) => {
     logout,
     loading,
     isAuthenticated: !!user,
-    makeAuthenticatedRequest,
+    logs,
+    clearLogs,
+    addLog,
+    clearStorage: () => {
+      clearStorage();
+      setUser(null);
+      setAccessToken(null);
+      setRefreshToken(null);
+    }
   };
 
   return (

@@ -1,4 +1,4 @@
-// src/JWTContext.js - Host App
+// src/JWTContext.js - Host App (Token Management & API Testing)
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const JWTContext = createContext();
@@ -18,18 +18,23 @@ export const JWTProvider = ({ children }) => {
   const [logs, setLogs] = useState([]);
 
   const addLog = (message) => {
-    setLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs(prev => [...prev, `${timestamp}: ${message}`]);
+    console.log(`🏠 Host: ${message}`);
+  };
+
+  const clearLogs = () => {
+    setLogs([]);
+    addLog('🧹 Host logs cleared');
   };
 
   // Listen for storage changes (when user manually clears sessionStorage)
-  // Listen for JWT tokens from remote app (when we add remote auth components)
   useEffect(() => {
     const handleStorageChange = () => {
       const storedToken = sessionStorage.getItem('jwt_token');
       const storedUser = sessionStorage.getItem('user_data');
       
       if (!storedToken && accessToken) {
-        // User manually cleared storage, update React state
         addLog('🧹 Detected manual session clear, updating state...');
         setAccessToken(null);
         setUser(null);
@@ -48,6 +53,8 @@ export const JWTProvider = ({ children }) => {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, [accessToken]);
+
+  // Listen for JWT tokens from remote app
   useEffect(() => {
     const handleMessage = (event) => {
       if (event.data.type === 'AUTH_TOKEN_UPDATE') {
@@ -80,7 +87,13 @@ export const JWTProvider = ({ children }) => {
       addLog('🔄 Found stored JWT token, validating...');
       validateStoredToken(storedToken, JSON.parse(storedUser));
     } else {
-      addLog('👋 JWT Context initialized, waiting for authentication...');
+      addLog('👋 Host JWT Context initialized, waiting for authentication...');
+      
+      // Request token from remote app if available
+      window.postMessage({
+        type: 'REQUEST_AUTH_TOKEN',
+        payload: { timestamp: Date.now() }
+      }, '*');
     }
 
     return () => window.removeEventListener('message', handleMessage);
@@ -117,46 +130,72 @@ export const JWTProvider = ({ children }) => {
     setAccessToken(null);
     setUser(null);
     setIsAuthenticated(false);
+    
+    // Clear both session and local storage
     sessionStorage.removeItem('jwt_token');
     sessionStorage.removeItem('user_data');
-    addLog('🧹 Cleared all authentication data');
+    localStorage.removeItem('refreshToken');
+    
+    // Notify remote app of logout
+    window.postMessage({
+      type: 'AUTH_LOGOUT',
+      payload: { timestamp: Date.now() }
+    }, '*');
+    
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'AUTH_LOGOUT',
+        payload: { timestamp: Date.now() }
+      }, '*');
+    }
+    
+    addLog('🧹 Cleared all authentication data (session + local storage)');
+    
+    // Redirect to home page after logout
+    window.location.href = '/';
   };
 
-  // Helper function for making authenticated requests
+  // Enhanced function for making authenticated requests to telecom APIs
   const makeAuthenticatedRequest = async (url, options = {}) => {
     // Double-check token exists in both state and storage
     const currentToken = accessToken || sessionStorage.getItem('jwt_token');
     
     if (!currentToken) {
-      addLog('❌ No access token available for API request');
-      throw new Error('No access token available');
+      addLog('❌ No access token available for telecom API request');
+      throw new Error('No access token available. Please authenticate first.');
     }
 
     const headers = {
+      'Content-Type': 'application/json',
       ...options.headers,
       'Authorization': `Bearer ${currentToken}`,
     };
 
     addLog(`📡 Making authenticated request to: ${url}`);
 
-    const response = await fetch(url, { ...options, headers });
+    try {
+      const response = await fetch(url, { ...options, headers });
 
-    if (response.status === 401) {
-      addLog('🔄 Token expired or invalid, clearing authentication');
-      handleLogout();
-      throw new Error('Token expired, please login again');
+      if (response.status === 401) {
+        addLog('🔄 Token expired or invalid, clearing authentication');
+        handleLogout();
+        throw new Error('Token expired, please login again');
+      }
+
+      if (response.ok) {
+        addLog('✅ Authenticated request successful');
+      } else {
+        addLog(`❌ Request failed with status: ${response.status}`);
+      }
+
+      return response;
+    } catch (error) {
+      addLog(`❌ Network error: ${error.message}`);
+      throw error;
     }
-
-    if (response.ok) {
-      addLog('✅ Authenticated request successful');
-    } else {
-      addLog(`❌ Request failed with status: ${response.status}`);
-    }
-
-    return response;
   };
 
-  // Manual login function for testing
+  // Manual login function for testing (fallback)
   const manualLogin = async (username, password) => {
     try {
       addLog(`🔐 Attempting manual login for: ${username}`);
@@ -199,8 +238,8 @@ export const JWTProvider = ({ children }) => {
     logout: handleLogout,
     manualLogin,
     logs,
-    clearLogs: () => setLogs([]),
-    addLog  // Added this line
+    clearLogs,
+    addLog
   };
 
   return (
