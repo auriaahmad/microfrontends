@@ -11,7 +11,10 @@ module.exports = {
     liveReload: true,
     headers: {
       "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "*",
     },
+    allowedHosts: "all", // 🔥 This avoids 403 for custom domains like typo3.local
   },
   output: {
     publicPath: "http://localhost:3001/",
@@ -44,12 +47,12 @@ module.exports = {
         "./Header": "./src/Header",
       },
       shared: {
-        react: { 
+        react: {
           singleton: true,
           requiredVersion: false, // Allow any version
           eager: false
         },
-        "react-dom": { 
+        "react-dom": {
           singleton: true,
           requiredVersion: false, // Allow any version
           eager: false

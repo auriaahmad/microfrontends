@@ -1,0 +1,725 @@
+**
+ * WordPress Microfrontend Authentication Integration with Remote Header
+ * FIXED VERSION - Simplified JWT handling
+ */
+
+// Remove WordPress header/navigation and load it from remote microfrontend
+function add_wp_microfrontend_scripts() {
+    ?>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script>
+    // Make React available globally
+    window.React = React;
+    window.ReactDOM = ReactDOM;
+    
+    // Set up webpack sharing scope
+    window.__webpack_share_scopes__ = window.__webpack_share_scopes__ || {};
+    window.__webpack_share_scopes__.default = window.__webpack_share_scopes__.default || {};
+    
+    window.__webpack_share_scopes__.default.react = {
+      "18.0.0": {
+        get: () => () => React,
+        loaded: true
+      }
+    };
+    window.__webpack_share_scopes__.default["react-dom"] = {
+      "18.0.0": {
+        get: () => () => ReactDOM,
+        loaded: true
+      }
+    };
+    
+    window.__webpack_init_sharing__ = window.__webpack_init_sharing__ || (() => Promise.resolve());
+    
+    // WordPress Authentication State - SIMPLIFIED
+    let wpAuthState = {
+        isAuthenticated: false,
+        user: null,
+        accessToken: null,
+        logs: []
+    };
+    
+    // Make wpAuthState globally available
+    window.wpAuthState = wpAuthState;
+    
+    // Logging function
+    function addWpLog(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logMessage = `${timestamp}: ${message}`;
+        wpAuthState.logs.push(logMessage);
+        
+        const logDisplay = document.getElementById('wp-log-display');
+        if (logDisplay && logDisplay.style.display !== 'none') {
+            logDisplay.innerHTML = wpAuthState.logs.join('<br>');
+            logDisplay.scrollTop = logDisplay.scrollHeight;
+        }
+        
+        console.log(`🔷 WordPress: ${message}`);
+    }
+    
+    // Initialize auth state from storage
+    function initWpAuthFromStorage() {
+        addWpLog('🔍 Checking storage for existing authentication...');
+        
+        // SIMPLIFIED: Only check for jwt_token and user_data
+        const jwt_token = localStorage.getItem('jwt_token') || sessionStorage.getItem('jwt_token');
+        const user_data = localStorage.getItem('user_data') || sessionStorage.getItem('user_data');
+        
+        if (jwt_token && user_data) {
+            try {
+                const user = JSON.parse(user_data);
+                
+                wpAuthState.isAuthenticated = true;
+                wpAuthState.user = user;
+                wpAuthState.accessToken = jwt_token;
+                
+                addWpLog(`✅ Restored auth from storage: ${user.username}`);
+                updateWpAuthStatus();
+                
+                // Broadcast to all components
+                window.postMessage({
+                    type: 'AUTH_STATE_SYNC',
+                    payload: {
+                        isAuthenticated: true,
+                        user: user,
+                        accessToken: jwt_token,
+                        source: 'wordpress-storage'
+                    }
+                }, '*');
+                
+                return true;
+            } catch (error) {
+                addWpLog(`❌ Error parsing stored user data: ${error.message}`);
+                clearWpAuth();
+            }
+        } else {
+            addWpLog('ℹ️ No valid authentication found in storage');
+        }
+        
+        return false;
+    }
+    
+    // Clear all auth data
+    function clearWpAuth() {
+        addWpLog('🧹 Clearing all authentication data...');
+        
+        // Clear state
+        wpAuthState.isAuthenticated = false;
+        wpAuthState.user = null;
+        wpAuthState.accessToken = null;
+        
+        // Clear ALL possible storage keys
+        const allKeys = [
+            'jwt_token', 'user_data', 'wp_access_token', 'wp_user', 
+            'auth_state', 'access_token', 'authToken'
+        ];
+        
+        allKeys.forEach(key => {
+            localStorage.removeItem(key);
+            sessionStorage.removeItem(key);
+        });
+        
+        updateWpAuthStatus();
+    }
+    
+    // Toggle logs
+    function toggleWpLogs() {
+        const logDisplay = document.getElementById('wp-log-display');
+        if (logDisplay.style.display === 'none') {
+            logDisplay.style.display = 'block';
+            logDisplay.innerHTML = wpAuthState.logs.join('<br>');
+            logDisplay.scrollTop = logDisplay.scrollHeight;
+        } else {
+            logDisplay.style.display = 'none';
+        }
+    }
+    
+    // Clear logs
+    function clearWpLogs() {
+        wpAuthState.logs = ['WordPress logs cleared...'];
+        const logDisplay = document.getElementById('wp-log-display');
+        if (logDisplay && logDisplay.style.display !== 'none') {
+            logDisplay.innerHTML = wpAuthState.logs.join('<br>');
+        }
+    }
+    
+    // Navigation handler
+    function handleWpNavigation(path) {
+        addWpLog(`🧭 Processing navigation request: ${path}`);
+        
+        const baseUrl = window.location.origin + '/wp-poc';
+        let targetUrl = '';
+        
+        switch(path) {
+            case '/home':
+            case '/':
+            case '/dashboard':
+            case 'dashboard':
+                targetUrl = `${baseUrl}/remote-component/`;
+                break;
+                
+            case '/profile':
+            case 'profile':
+                targetUrl = `${baseUrl}/profile/`;
+                break;
+                
+            case '/logout':
+            case 'logout':
+                logoutWp();
+                return;
+                
+            default:
+                targetUrl = `${baseUrl}/remote-component/`;
+                break;
+        }
+        
+        if (targetUrl) {
+            addWpLog(`➡️ Redirecting to: ${targetUrl}`);
+            window.location.href = targetUrl;
+        }
+    }
+    
+    // Make navigation function globally available
+    window.handleWpNavigation = handleWpNavigation;
+    
+    // Logout function
+    function logoutWp() {
+        addWpLog('🚪 Starting logout...');
+        
+        clearWpAuth();
+        
+        // Broadcast logout
+        window.postMessage({
+            type: 'AUTH_LOGOUT',
+            source: 'wordpress'
+        }, '*');
+        
+        addWpLog('✅ Logout completed');
+        
+        // Navigate to dashboard
+        setTimeout(() => {
+            handleWpNavigation('/dashboard');
+        }, 1000);
+    }
+    
+    // Make logout globally available
+    window.logoutWp = logoutWp;
+    
+    // API testing function
+    async function testWpAPI() {
+        addWpLog('🔍 Starting API test...');
+        
+        if (!wpAuthState.isAuthenticated || !wpAuthState.accessToken) {
+            addWpLog('❌ Not authenticated - cannot test API');
+            return;
+        }
+        
+        const responseDiv = document.getElementById('wp-api-response');
+        const errorDiv = document.getElementById('wp-api-error');
+        const apiButton = document.getElementById('wp-test-api');
+        
+        if (!responseDiv || !errorDiv || !apiButton) return;
+        
+        responseDiv.style.display = 'none';
+        errorDiv.style.display = 'none';
+        
+        apiButton.textContent = 'Testing WordPress API...';
+        apiButton.disabled = true;
+        
+        try {
+            const response = await fetch('http://localhost:3002/api/user/profile', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${wpAuthState.accessToken}`
+                }
+            });
+            
+            addWpLog(`📡 API Response status: ${response.status}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                responseDiv.innerHTML = `
+                    <h4 style="color: #28a745; margin: 0 0 10px 0;">✅ WordPress API Response Success:</h4>
+                    <pre style="background: #f8f9fa; padding: 15px; border-radius: 4px; font-size: 14px; overflow: auto; max-height: 300px; border: 1px solid #e0e0e0;">${JSON.stringify(data, null, 2)}</pre>
+                `;
+                responseDiv.style.display = 'block';
+                addWpLog('✅ API test successful');
+            } else {
+                if (response.status === 401 || response.status === 403) {
+                    addWpLog('🔑 Token expired - forcing logout');
+                    logoutWp();
+                    return;
+                }
+                
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
+            
+        } catch (error) {
+            addWpLog(`❌ API Error: ${error.message}`);
+            
+            errorDiv.innerHTML = `
+                <h4 style="color: #dc3545; margin: 0 0 10px 0;">❌ WordPress API Error:</h4>
+                <div style="background: #ffebee; padding: 15px; border-radius: 4px; border: 1px solid #f44336; color: #721c24;">
+                    ${error.message}
+                </div>
+            `;
+            errorDiv.style.display = 'block';
+        } finally {
+            apiButton.textContent = 'Test WordPress User Profile API';
+            apiButton.disabled = !wpAuthState.isAuthenticated;
+        }
+    }
+    
+    // Make API test function globally available
+    window.testWpAPI = testWpAPI;
+    
+    // Update auth status
+    function updateWpAuthStatus() {
+        const statusDiv = document.getElementById('wp-auth-status');
+        const apiButton = document.getElementById('wp-test-api');
+        
+        if (!statusDiv || !apiButton) return;
+        
+        if (wpAuthState.isAuthenticated && wpAuthState.accessToken && wpAuthState.user) {
+            statusDiv.innerHTML = `
+                <strong>Status:</strong> <span style="color: #28a745;">🟢 Authenticated</span><br>
+                <small><strong>User:</strong> ${wpAuthState.user.username} | <strong>Role:</strong> ${wpAuthState.user.role}</small><br>
+                <small><strong>JWT:</strong> ${wpAuthState.accessToken.substring(0, 30)}...</small>
+            `;
+            statusDiv.style.background = '#d4edda';
+            
+            apiButton.disabled = false;
+            apiButton.style.background = '#28a745';
+            apiButton.style.cursor = 'pointer';
+        } else {
+            statusDiv.innerHTML = '<strong>Status:</strong> <span style="color: #dc3545;">🔴 Not Authenticated</span>';
+            statusDiv.style.background = '#ffebee';
+            
+            apiButton.disabled = true;
+            apiButton.style.background = '#ccc';
+            apiButton.style.cursor = 'not-allowed';
+        }
+    }
+    
+    // Message listener - FIXED for remote authentication
+    window.addEventListener('message', (event) => {
+        addWpLog(`📨 Received message: ${event.data.type} from ${event.data.source || 'unknown'}`);
+        
+        // Handle authentication from remote component
+        if (event.data.type === 'AUTH_TOKEN_UPDATE') {
+            const { accessToken, user, source } = event.data.payload;
+            
+            // Update WordPress state
+            wpAuthState.isAuthenticated = true;
+            wpAuthState.user = user;
+            wpAuthState.accessToken = accessToken;
+            
+            // Store ONLY as jwt_token and user_data (simplified)
+            localStorage.setItem('jwt_token', accessToken);
+            localStorage.setItem('user_data', JSON.stringify(user));
+            
+            addWpLog(`🔑 JWT received from ${source}: ${user.username}`);
+            updateWpAuthStatus();
+            
+            // Sync with other components
+            window.postMessage({
+                type: 'AUTH_STATE_SYNC',
+                payload: {
+                    isAuthenticated: true,
+                    user: user,
+                    accessToken: accessToken,
+                    source: 'wordpress'
+                }
+            }, '*');
+        }
+        
+        if (event.data.type === 'AUTH_LOGOUT') {
+            if (event.data.source !== 'wordpress') {
+                logoutWp();
+            }
+        }
+        
+        if (event.data.type === 'NAVIGATE_TO') {
+            const { path, source } = event.data.payload;
+            addWpLog(`🧭 Navigation from ${source}: ${path}`);
+            handleWpNavigation(path);
+        }
+    });
+    
+    // Load Remote Header Component
+    async function loadRemoteHeader() {
+        try {
+            addWpLog('🎯 Loading remote header component...');
+            
+            const script = document.createElement('script');
+            script.src = 'http://localhost:3001/remoteEntry.js';
+            
+            script.onload = async function() {
+                try {
+                    addWpLog('📦 Remote entry loaded');
+                    
+                    let attempts = 0;
+                    while (!window.remoteCounter && attempts < 10) {
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                        attempts++;
+                    }
+                    
+                    if (!window.remoteCounter) {
+                        throw new Error('Remote container not found');
+                    }
+                    
+                    const container = window.remoteCounter;
+                    await container.init(window.__webpack_share_scopes__.default);
+                    
+                    const headerFactory = await container.get('./Header');
+                    const Header = headerFactory().default;
+                    
+                    addWpLog('🎯 Remote header component loaded');
+                    
+                    const headerDiv = document.getElementById('wp-remote-header');
+                    if (headerDiv) {
+                        headerDiv.innerHTML = '';
+                        const headerRoot = ReactDOM.createRoot(headerDiv);
+                        
+                        headerRoot.render(
+                            React.createElement(Header, {
+                                currentSystem: 'WordPress',
+                                authState: wpAuthState,
+                                onNavigate: handleWpNavigation
+                            })
+                        );
+                        
+                        addWpLog('✅ Remote header rendered successfully!');
+                    }
+                    
+                } catch (error) {
+                    addWpLog(`❌ Failed to load remote header: ${error.message}`);
+                    
+                    const headerDiv = document.getElementById('wp-remote-header');
+                    if (headerDiv) {
+                        headerDiv.innerHTML = `
+                            <div style="background: #f44336; color: white; padding: 15px; text-align: center;">
+                                ⚠️ Remote header failed to load: ${error.message}
+                            </div>
+                        `;
+                    }
+                }
+            };
+            
+            script.onerror = function() {
+                addWpLog('❌ Failed to load remote entry script');
+            };
+            
+            document.head.appendChild(script);
+            
+        } catch (error) {
+            addWpLog(`❌ Error loading remote header: ${error.message}`);
+        }
+    }
+    
+    // Load Authentication Components
+    async function loadWpAuthentication() {
+        try {
+            addWpLog('🔐 Loading authentication components...');
+            
+            if (window.remoteCounter) {
+                const container = window.remoteCounter;
+                
+                const authProviderFactory = await container.get('./AuthProvider');
+                const AuthProvider = authProviderFactory().default;
+                
+                const loginComponentFactory = await container.get('./LoginComponent');
+                const LoginComponent = loginComponentFactory().default;
+                
+                const authDiv = document.getElementById('wp-auth-component');
+                if (authDiv) {
+                    authDiv.innerHTML = '';
+                    const authRoot = ReactDOM.createRoot(authDiv);
+                    
+                    authRoot.render(
+                        React.createElement(AuthProvider, {}, 
+                            React.createElement(LoginComponent)
+                        )
+                    );
+                    
+                    addWpLog('✅ Authentication component rendered!');
+                }
+            }
+            
+        } catch (error) {
+            addWpLog(`❌ Failed to load authentication: ${error.message}`);
+        }
+    }
+    
+    // Initialize WordPress system
+    function initializeWpSystem() {
+        addWpLog('🔷 WordPress microfrontend system starting...');
+        
+        // FIRST: Check for existing authentication
+        const hasAuth = initWpAuthFromStorage();
+        
+        // Load remote components
+        loadRemoteHeader().then(() => {
+            setTimeout(loadWpAuthentication, 1000);
+        });
+        
+        // Update UI
+        setTimeout(updateWpAuthStatus, 500);
+        
+        if (hasAuth) {
+            addWpLog('✅ System initialized with existing authentication');
+        } else {
+            addWpLog('ℹ️ System initialized - awaiting authentication');
+        }
+    }
+    
+    // Wait for DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeWpSystem);
+    } else {
+        setTimeout(initializeWpSystem, 100);
+    }
+    
+    </script>
+    <?php
+}
+add_action('wp_head', 'add_wp_microfrontend_scripts');
+
+// Remove WordPress admin bar
+add_filter('show_admin_bar', '__return_false');
+
+// WordPress Main Component Shortcode
+function wp_microfrontend_shortcode() {
+    return '
+    <div class="wp-microfrontend-system">
+        <!-- Remote Header Container -->
+        <div id="wp-remote-header" style="margin-bottom: 20px;">
+            <div style="background: linear-gradient(135deg, #2196F3, #1976D2); color: white; padding: 15px; text-align: center; border-radius: 8px;">
+                <div style="width: 30px; height: 30px; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; animation: wp-spin 1s linear infinite; margin: 0 auto 10px;"></div>
+                Loading remote header...
+            </div>
+        </div>
+        
+        <style>
+        @keyframes wp-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        </style>
+        
+        <!-- Authentication Container -->
+        <div id="wp-auth-component" style="border: 2px solid #2196F3; padding: 20px; margin: 20px 0; border-radius: 8px; background: #f9f9f9;">
+            <h3>🔐 Remote Authentication Component</h3>
+            <p>Loading authentication from remote app...</p>
+        </div>
+        
+        <!-- WordPress API Testing Dashboard -->
+        <div id="wp-api-testing" style="border: 2px solid #ff5722; padding: 20px; margin: 20px 0; border-radius: 8px; background: #fff3e0;">
+            <h3>🧪 WordPress API Testing Dashboard</h3>
+            <div id="wp-auth-status" style="padding: 10px; background: #ffebee; border-radius: 4px; margin-bottom: 15px;">
+                <strong>Status:</strong> <span style="color: #dc3545;">🔴 Not Authenticated</span>
+            </div>
+            <button id="wp-test-api" onclick="testWpAPI()" disabled style="background: #ccc; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: not-allowed; font-size: 16px; font-weight: bold;">
+                Test WordPress User Profile API
+            </button>
+            <div id="wp-api-response" style="margin-top: 15px; display: none;"></div>
+            <div id="wp-api-error" style="margin-top: 15px; display: none;"></div>
+        </div>
+        
+        <!-- Activity Logs -->
+        <div id="wp-logs" style="border: 2px solid #6c757d; padding: 20px; margin: 20px 0; border-radius: 8px; background: #f8f9fa;">
+            <h3>📋 WordPress Activity Logs</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button onclick="toggleWpLogs()" style="background: #2196F3; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                    Toggle Logs
+                </button>
+                <button onclick="clearWpLogs()" style="background: #666; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                    Clear Logs
+                </button>
+            </div>
+            <div id="wp-log-display" style="background: #000; color: #00ff00; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; display: none;">
+                WordPress microfrontend system initialized...
+            </div>
+        </div>
+    </div>';
+}
+add_shortcode('wp_auth', 'wp_microfrontend_shortcode');
+
+// Profile Page Shortcode - FIXED to properly check authentication
+function wp_profile_page_shortcode() {
+    return '
+    <div id="wp-profile-page">
+        <!-- Remote Header Container -->
+        <div id="wp-remote-header" style="margin-bottom: 20px;">
+            <div style="background: linear-gradient(135deg, #2196F3, #1976D2); color: white; padding: 15px; text-align: center; border-radius: 8px;">
+                <div style="width: 30px; height: 30px; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; animation: wp-spin 1s linear infinite; margin: 0 auto 10px;"></div>
+                Loading remote header...
+            </div>
+        </div>
+        
+        <div id="wp-profile-content" style="text-align: center; padding: 40px; color: #666;">
+            <div style="width: 40px; height: 40px; border: 4px solid #e3f2fd; border-top: 4px solid #2196f3; border-radius: 50%; animation: wp-spin 1s linear infinite; margin: 0 auto 20px;"></div>
+            <p>Checking WordPress authentication...</p>
+        </div>
+    </div>
+    
+    <script>
+    // Check profile authentication - FIXED
+    function checkWpProfileAuth() {
+        console.log("🔍 Checking profile authentication...");
+        
+        const profileContent = document.getElementById("wp-profile-content");
+        if (!profileContent) return;
+        
+        // Check storage first
+        const jwt_token = localStorage.getItem("jwt_token") || sessionStorage.getItem("jwt_token");
+        const user_data = localStorage.getItem("user_data") || sessionStorage.getItem("user_data");
+        
+        console.log("JWT from storage:", jwt_token ? "Found" : "Not found");
+        console.log("User data from storage:", user_data ? "Found" : "Not found");
+        
+        // Also check global state
+        const authState = window.wpAuthState;
+        console.log("Global auth state:", authState);
+        
+        let isAuthenticated = false;
+        let user = null;
+        let token = null;
+        
+        // Prioritize storage data
+        if (jwt_token && user_data) {
+            try {
+                user = JSON.parse(user_data);
+                token = jwt_token;
+                isAuthenticated = true;
+                console.log("✅ Using authentication from storage");
+            } catch (error) {
+                console.error("Error parsing user data:", error);
+            }
+        }
+        // Fallback to global state
+        else if (authState && authState.isAuthenticated && authState.user && authState.accessToken) {
+            user = authState.user;
+            token = authState.accessToken;
+            isAuthenticated = true;
+            console.log("✅ Using authentication from global state");
+        }
+        
+        if (isAuthenticated && user && token) {
+            profileContent.innerHTML = `
+                <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h2 style="color: #4CAF50; margin: 0 0 20px 0;">✅ WordPress Profile</h2>
+                    <div style="display: grid; grid-template-columns: 150px 1fr; gap: 15px; align-items: center; text-align: left;">
+                        <strong>Username:</strong>
+                        <span>${user.username}</span>
+                        <strong>Email:</strong>
+                        <span>${user.email || "N/A"}</span>
+                        <strong>Role:</strong>
+                        <span style="color: white; background: ${user.role === "admin" ? "#ff5722" : "#2196F3"}; padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: bold;">
+                            ${user.role}
+                        </span>
+                        <strong>JWT:</strong>
+                        <span style="font-family: monospace; font-size: 12px; color: #666; word-break: break-all;">
+                            ${token.substring(0, 50)}...
+                        </span>
+                    </div>
+                    <div style="margin-top: 25px; padding: 15px; background: #e7f3ff; border-radius: 6px; font-size: 14px; color: #2196F3;">
+                        <strong>🔷 WordPress:</strong> Successfully authenticated with JWT token
+                    </div>
+                    <div style="margin-top: 20px; display: flex; gap: 10px;">
+                        <button onclick="logoutWp()" 
+                                style="background: #f44336; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                            🚪 Logout
+                        </button>
+                        <button onclick="checkWpProfileAuth()" 
+                                style="background: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                            🔄 Refresh Profile
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            profileContent.innerHTML = `
+                <div style="max-width: 500px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); border: 2px solid #f44336;">
+                    <div style="font-size: 64px; margin-bottom: 20px;">🔐</div>
+                    <h2 style="color: #f44336; margin-bottom: 15px;">Unauthorized Access</h2>
+                    <p style="color: #666; margin-bottom: 20px; font-size: 16px;">
+                        You need to be authenticated to access this WordPress profile section.
+                    </p>
+                    <p style="color: #888; margin-bottom: 25px; font-size: 14px;">
+                        Please login first using the authentication component on the home page.
+                    </p>
+                    <button onclick="handleWpNavigation(\"/dashboard\")" 
+                            style="background: #2196F3; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">
+                        🏠 Go to Home
+                    </button>
+                </div>
+            `;
+        }
+    }
+    
+    // Listen for auth changes
+    window.addEventListener("message", (event) => {
+        if (event.data.type === "AUTH_TOKEN_UPDATE" || 
+            event.data.type === "AUTH_LOGOUT" || 
+            event.data.type === "AUTH_STATE_SYNC") {
+            console.log("🔄 Auth state changed, refreshing profile...");
+            setTimeout(checkWpProfileAuth, 100);
+        }
+    });
+    
+    // Check on load - with multiple attempts
+    let checkAttempts = 0;
+    function attemptProfileCheck() {
+        checkAttempts++;
+        console.log(`🔍 Profile check attempt ${checkAttempts}`);
+        
+        checkWpProfileAuth();
+        
+        // If still not authenticated and we have attempts left, try again
+        const profileContent = document.getElementById("wp-profile-content");
+        if (profileContent && profileContent.innerHTML.includes("Checking WordPress authentication") && checkAttempts < 5) {
+            setTimeout(attemptProfileCheck, 1000);
+        }
+    }
+    
+    // Start checking
+    setTimeout(attemptProfileCheck, 500);
+    
+    // Make function globally available
+    window.checkWpProfileAuth = checkWpProfileAuth;
+    </script>';
+}
+add_shortcode('wp_profile', 'wp_profile_page_shortcode');
+
+// Add WordPress pages
+function add_wp_microfrontend_pages() {
+    $main_page = get_page_by_path('remote-component');
+    if (!$main_page) {
+        wp_insert_post([
+            'post_title' => 'WordPress Microfrontend System',
+            'post_name' => 'remote-component',
+            'post_content' => '[wp_auth]',
+            'post_status' => 'publish',
+            'post_type' => 'page'
+        ]);
+    }
+    
+    $profile_page = get_page_by_path('profile');
+    if (!$profile_page) {
+        wp_insert_post([
+            'post_title' => 'User Profile',
+            'post_name' => 'profile',
+            'post_content' => '[wp_profile]',
+            'post_status' => 'publish',
+            'post_type' => 'page'
+        ]);
+    }
+}
+add_action('init', 'add_wp_microfrontend_pages');
+
+?>
