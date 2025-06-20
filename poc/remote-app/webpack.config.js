@@ -1,3 +1,4 @@
+// webpack.config.js - Remote App (Updated)
 const ModuleFederationPlugin = require("webpack/lib/container/ModuleFederationPlugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 
@@ -36,19 +37,21 @@ module.exports = {
       exposes: {
         "./SyncedCounter": "./src/SyncedCounter",
         "./UnsyncedCounter": "./src/UnsyncedCounter",
-        // Add new authentication components
+        // Authentication components
         "./AuthProvider": "./src/AuthContext",
-        "./LoginComponent": "./src/LoginComponent", 
+        "./LoginComponent": "./src/LoginComponent",
+        // Add Header component
+        "./Header": "./src/Header",
       },
       shared: {
         react: { 
           singleton: true,
-          requiredVersion: "^18.0.0",
+          requiredVersion: false, // Allow any version
           eager: false
         },
         "react-dom": { 
           singleton: true,
-          requiredVersion: "^18.0.0", 
+          requiredVersion: false, // Allow any version
           eager: false
         },
       },

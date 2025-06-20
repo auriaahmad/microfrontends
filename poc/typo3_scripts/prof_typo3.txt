@@ -1,0 +1,198 @@
+<!-- TYPO3 Profile Page - Minimal Version -->
+<div class="typo3-profile">
+    <!-- Remote Header Container -->
+    <div id="typo3-remote-header-container"></div>
+    
+    <!-- Profile Content -->
+    <div id="typo3-profile-content">
+        <div style="text-align: center; padding: 50px;">
+            <p>Loading...</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.typo3-profile {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.profile-section {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.unauthorized-content {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    max-width: 500px;
+    margin: 50px auto;
+    border: 2px solid #f44336;
+}
+</style>
+
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+<script>
+console.log('🟢 TYPO3 Profile - Clean version loaded at', new Date().toLocaleTimeString());
+
+// IMPORTANT: Check for old versions and stop them
+if (window.typo3ProfilePage) {
+    console.log('🛑 Stopping old profile page instance');
+    if (window.typo3ProfilePage.destroy) {
+        window.typo3ProfilePage.destroy();
+    }
+    window.typo3ProfilePage = null;
+}
+
+// Simple auth check - NO POLLING
+function checkAuthOnce() {
+    console.log('🔍 Checking auth ONCE at', new Date().toLocaleTimeString());
+    
+    const token = sessionStorage.getItem('jwt_token');
+    const userData = sessionStorage.getItem('user_data');
+    
+    if (token && userData) {
+        const user = JSON.parse(userData);
+        renderAuthenticatedProfile(user, token);
+    } else {
+        renderUnauthorizedProfile();
+    }
+}
+
+// Render authenticated view
+function renderAuthenticatedProfile(user, token) {
+    console.log('✅ Rendering authenticated profile');
+    
+    const container = document.getElementById('typo3-profile-content');
+    container.innerHTML = `
+        <div class="profile-section">
+            <h2>👤 User Profile</h2>
+            <div style="margin: 20px 0;">
+                <p><strong>Username:</strong> ${user.username}</p>
+                <p><strong>Email:</strong> ${user.email}</p>
+                <p><strong>Role:</strong> 
+                    <span style="background: ${user.role === 'admin' ? '#ff5722' : '#2196F3'}; color: white; padding: 4px 12px; border-radius: 16px;">
+                        ${user.role}
+                    </span>
+                </p>
+            </div>
+            <button onclick="logoutUser()" style="background: #f44336; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                🚪 Logout
+            </button>
+        </div>
+    `;
+}
+
+// Render unauthorized view
+function renderUnauthorizedProfile() {
+    console.log('🔒 Rendering unauthorized profile');
+    
+    const container = document.getElementById('typo3-profile-content');
+    container.innerHTML = `
+        <div class="unauthorized-content">
+            <div style="font-size: 64px; margin-bottom: 20px;">🔐</div>
+            <h2 style="color: #f44336;">Unauthorized Access</h2>
+            <p style="color: #666; margin: 20px 0;">You need to be authenticated to access this profile page.</p>
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button onclick="window.location.href='http://localhost/typo3-poc/dashboard'" style="background: #2196F3; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px;">
+                    🏠 Go to Home
+                </button>
+                <button onclick="window.location.reload()" style="background: #ff9800; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px;">
+                    🔄 Refresh
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Logout function
+function logoutUser() {
+    console.log('🚪 Logging out user');
+    
+    // Clear all auth data
+    sessionStorage.removeItem('jwt_token');
+    sessionStorage.removeItem('user_data');
+    localStorage.removeItem('refreshToken');
+    
+    // Redirect to dashboard
+    window.location.href = 'http://localhost/typo3-poc/dashboard';
+}
+
+// Load remote header (optional - can be removed if causing issues)
+async function loadRemoteHeader() {
+    try {
+        console.log('📦 Loading remote header');
+        
+        // Setup webpack environment
+        window.__webpack_share_scopes__ = window.__webpack_share_scopes__ || {};
+        window.__webpack_share_scopes__.default = window.__webpack_share_scopes__.default || {};
+        window.__webpack_share_scopes__.default.react = {
+            "18.0.0": { get: () => () => window.React, loaded: true }
+        };
+        window.__webpack_share_scopes__.default["react-dom"] = {
+            "18.0.0": { get: () => () => window.ReactDOM, loaded: true }
+        };
+        window.__webpack_init_sharing__ = () => Promise.resolve();
+        
+        // Load script if not already loaded
+        if (!window.remoteCounter) {
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'http://localhost:3001/remoteEntry.js';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+            
+            // Wait a bit for container to be available
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        if (window.remoteCounter) {
+            await window.remoteCounter.init(window.__webpack_share_scopes__.default);
+            const headerFactory = await window.remoteCounter.get('./Header');
+            const HeaderModule = headerFactory();
+            const RemoteHeader = HeaderModule.default;
+            
+            const headerContainer = document.getElementById('typo3-remote-header-container');
+            if (headerContainer) {
+                const headerRoot = ReactDOM.createRoot(headerContainer);
+                headerRoot.render(React.createElement(RemoteHeader, {
+                    currentPage: 'profile',
+                    onNavigate: (page) => {
+                        if (page === 'dashboard') {
+                            window.location.href = 'http://localhost/typo3-poc/dashboard';
+                        }
+                    }
+                }));
+            }
+        }
+    } catch (error) {
+        console.error('Header loading failed:', error);
+    }
+}
+
+// Initialize - Run ONCE
+console.log('🚀 Initializing profile page');
+checkAuthOnce();  // Check auth only once
+loadRemoteHeader();  // Load header
+
+// Listen for auth changes (but don't poll)
+window.addEventListener('storage', (event) => {
+    if (event.key === 'jwt_token') {
+        console.log('📡 Auth changed in another tab, reloading...');
+        window.location.reload();
+    }
+});
+
+console.log('✅ Profile page initialized - NO POLLING');
+</script>

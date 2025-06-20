@@ -1,0 +1,264 @@
+<!-- TYPO3 Dashboard with Remote Components -->
+<div class="typo3-dashboard">
+    <!-- Remote Header Container -->
+    <div id="typo3-remote-header-container"></div>
+    
+    <h2>🔐 TYPO3 Telecom Authentication System</h2>
+    
+    <!-- Authentication Container -->
+    <div id="typo3-auth-component" style="border: 2px solid #2196F3; padding: 20px; margin: 20px 0; border-radius: 8px; background: #f9f9f9;">
+        <p>Loading authentication component...</p>
+    </div>
+    
+    <!-- API Testing Container -->
+    <div style="border: 2px solid #ff5722; padding: 20px; margin: 20px 0; border-radius: 8px; background: #fff3e0;">
+        <h3>🧪 TYPO3 API Testing</h3>
+        <div id="typo3-auth-status" style="padding: 10px; background: #ffebee; border-radius: 4px; margin-bottom: 15px;">
+            <strong>Status:</strong> <span style="color: #dc3545;">🔴 Not Authenticated</span>
+        </div>
+        <button id="typo3-test-api" disabled style="background: #ccc; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: not-allowed; font-size: 16px; font-weight: bold;">
+            Test API
+        </button>
+        <div id="typo3-api-response" style="margin-top: 15px; display: none;"></div>
+    </div>
+</div>
+
+<style>
+.typo3-dashboard {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+#typo3-remote-header-container {
+    margin-bottom: 20px;
+}
+</style>
+
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+<script>
+// Auth State Management
+let authState = {
+    isAuthenticated: false,
+    user: null,
+    token: null
+};
+
+// Initialize webpack environment
+function setupWebpackEnvironment() {
+    window.React = window.React || React;
+    window.ReactDOM = window.ReactDOM || ReactDOM;
+    
+    window.__webpack_share_scopes__ = window.__webpack_share_scopes__ || {};
+    window.__webpack_share_scopes__.default = window.__webpack_share_scopes__.default || {};
+    
+    window.__webpack_share_scopes__.default.react = {
+        "18.0.0": { get: () => () => window.React, loaded: true }
+    };
+    
+    window.__webpack_share_scopes__.default["react-dom"] = {
+        "18.0.0": { get: () => () => window.ReactDOM, loaded: true }
+    };
+    
+    window.__webpack_init_sharing__ = window.__webpack_init_sharing__ || (() => Promise.resolve());
+}
+
+// Load Remote Components
+async function loadRemoteComponents() {
+    try {
+        // Load remote entry
+        await new Promise((resolve, reject) => {
+            if (window.remoteCounter) {
+                resolve();
+                return;
+            }
+            
+            const script = document.createElement('script');
+            script.src = 'http://localhost:3001/remoteEntry.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+        
+        // Wait for container
+        let attempts = 0;
+        while (!window.remoteCounter && attempts < 20) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            attempts++;
+        }
+        
+        if (!window.remoteCounter) throw new Error('Remote container not found');
+        
+        // Initialize container
+        await window.remoteCounter.init(window.__webpack_share_scopes__.default);
+        
+        // Load Header
+        const headerFactory = await window.remoteCounter.get('./Header');
+        const HeaderModule = headerFactory();
+        const RemoteHeader = HeaderModule.default;
+        
+        const headerRoot = ReactDOM.createRoot(document.getElementById('typo3-remote-header-container'));
+        headerRoot.render(React.createElement(RemoteHeader, {
+            currentPage: 'dashboard',
+            onNavigate: (page) => {
+                if (page === 'profile') {
+                    window.location.href = 'http://localhost/typo3-poc/prof';
+                }
+            }
+        }));
+        
+        // Load Auth Components
+        const authProviderFactory = await window.remoteCounter.get('./AuthProvider');
+        const AuthProvider = authProviderFactory().default;
+        
+        const loginComponentFactory = await window.remoteCounter.get('./LoginComponent');
+        const LoginComponent = loginComponentFactory().default;
+        
+        const authRoot = ReactDOM.createRoot(document.getElementById('typo3-auth-component'));
+        authRoot.render(
+            React.createElement(AuthProvider, {}, 
+                React.createElement(LoginComponent)
+            )
+        );
+        
+    } catch (error) {
+        console.error('Failed to load remote components:', error);
+        document.getElementById('typo3-auth-component').innerHTML = 
+            '<p style="color: red;">Failed to load authentication component</p>';
+    }
+}
+
+// Event-driven auth system
+function initializeAuth() {
+    // Check initial state
+    const token = sessionStorage.getItem('jwt_token');
+    const userData = sessionStorage.getItem('user_data');
+    
+    if (token && userData) {
+        authState = {
+            isAuthenticated: true,
+            user: JSON.parse(userData),
+            token
+        };
+        updateAuthUI();
+    }
+    
+    // Listen for storage changes (cross-tab)
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'jwt_token' || event.key === 'user_data') {
+            handleAuthChange();
+        }
+    });
+    
+    // Listen for postMessage (same-tab)
+    window.addEventListener('message', (event) => {
+        if (event.data?.type === 'AUTH_TOKEN_UPDATE') {
+            const { accessToken, user } = event.data.payload;
+            authState = {
+                isAuthenticated: true,
+                user,
+                token: accessToken
+            };
+            updateAuthUI();
+        } else if (event.data?.type === 'AUTH_LOGOUT') {
+            authState = {
+                isAuthenticated: false,
+                user: null,
+                token: null
+            };
+            updateAuthUI();
+        }
+    });
+}
+
+function handleAuthChange() {
+    const token = sessionStorage.getItem('jwt_token');
+    const userData = sessionStorage.getItem('user_data');
+    
+    if (token && userData) {
+        authState = {
+            isAuthenticated: true,
+            user: JSON.parse(userData),
+            token
+        };
+    } else {
+        authState = {
+            isAuthenticated: false,
+            user: null,
+            token: null
+        };
+    }
+    
+    updateAuthUI();
+}
+
+function updateAuthUI() {
+    const statusDiv = document.getElementById('typo3-auth-status');
+    const apiButton = document.getElementById('typo3-test-api');
+    
+    if (authState.isAuthenticated) {
+        statusDiv.innerHTML = `
+            <strong>Status:</strong> <span style="color: #28a745;">🟢 Authenticated</span><br>
+            <small><strong>User:</strong> ${authState.user?.username}</small>
+        `;
+        statusDiv.style.background = '#d4edda';
+        
+        apiButton.disabled = false;
+        apiButton.style.background = '#28a745';
+        apiButton.style.cursor = 'pointer';
+        apiButton.onclick = testAPI;
+    } else {
+        statusDiv.innerHTML = '<strong>Status:</strong> <span style="color: #dc3545;">🔴 Not Authenticated</span>';
+        statusDiv.style.background = '#ffebee';
+        
+        apiButton.disabled = true;
+        apiButton.style.background = '#ccc';
+        apiButton.style.cursor = 'not-allowed';
+        apiButton.onclick = null;
+    }
+}
+
+async function testAPI() {
+    if (!authState.token) return;
+    
+    const responseDiv = document.getElementById('typo3-api-response');
+    const apiButton = document.getElementById('typo3-test-api');
+    
+    apiButton.textContent = 'Testing...';
+    apiButton.disabled = true;
+    
+    try {
+        const response = await fetch('http://localhost:3002/api/user/profile', {
+            headers: {
+                'Authorization': `Bearer ${authState.token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        responseDiv.innerHTML = `
+            <h4 style="color: #28a745;">✅ API Response:</h4>
+            <pre style="background: #f8f9fa; padding: 15px; border-radius: 4px; overflow: auto;">${JSON.stringify(data, null, 2)}</pre>
+        `;
+        responseDiv.style.display = 'block';
+        
+    } catch (error) {
+        responseDiv.innerHTML = `
+            <h4 style="color: #dc3545;">❌ API Error:</h4>
+            <p>${error.message}</p>
+        `;
+        responseDiv.style.display = 'block';
+    } finally {
+        apiButton.textContent = 'Test API';
+        apiButton.disabled = false;
+    }
+}
+
+// Initialize
+setupWebpackEnvironment();
+initializeAuth();
+loadRemoteComponents();
+</script>

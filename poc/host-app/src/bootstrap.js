@@ -1,4 +1,4 @@
-// src/bootstrap.js - Host App with Routing (Updated)
+// src/bootstrap.js - Host App (Updated)
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { JWTProvider } from "./JWTContext";
@@ -12,6 +12,7 @@ const App = () => {
   const [remoteError, setRemoteError] = useState(null);
   const [RemoteAuthProvider, setRemoteAuthProvider] = useState(null);
   const [RemoteLoginComponent, setRemoteLoginComponent] = useState(null);
+  const [RemoteHeader, setRemoteHeader] = useState(null);
 
   // Simple routing based on URL path
   useEffect(() => {
@@ -55,7 +56,7 @@ const App = () => {
         
         console.log('✅ Remote app is accessible, loading components...');
         
-        const [AuthProviderModule, LoginComponentModule] = await Promise.all([
+        const [AuthProviderModule, LoginComponentModule, HeaderModule] = await Promise.all([
           import("remoteCounter/AuthProvider").catch(err => {
             console.error('Failed to load AuthProvider:', err);
             throw new Error('AuthProvider component failed to load');
@@ -63,13 +64,18 @@ const App = () => {
           import("remoteCounter/LoginComponent").catch(err => {
             console.error('Failed to load LoginComponent:', err);
             throw new Error('LoginComponent component failed to load');
+          }),
+          import("remoteCounter/Header").catch(err => {
+            console.error('Failed to load Header:', err);
+            throw new Error('Header component failed to load');
           })
         ]);
 
-        console.log('✅ Remote components loaded successfully');
+        console.log('✅ All remote components loaded successfully');
         
         setRemoteAuthProvider(() => AuthProviderModule.default);
         setRemoteLoginComponent(() => LoginComponentModule.default);
+        setRemoteHeader(() => HeaderModule.default);
         setRemoteComponentsLoaded(true);
         
       } catch (error) {
@@ -84,10 +90,38 @@ const App = () => {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Use maxWidth: '100%' instead of fixed width to allow flexibility */}
+      <div style={{ maxWidth: '100%', margin: '0 auto' }}>
         
         <JWTProvider>
           
+          {/* Remote Header Only */}
+          {remoteComponentsLoaded && RemoteHeader ? (
+            <RemoteHeader currentPage={currentPage} onNavigate={navigateTo} />
+          ) : (
+            <div style={{ 
+              textAlign: 'center', 
+              marginBottom: '30px', 
+              padding: '20px',
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ fontSize: '18px', color: '#666', marginBottom: '10px' }}>
+                🔄 Loading Remote Header...
+              </div>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                border: '4px solid #e3f2fd',
+                borderTop: '4px solid #2196f3',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+                margin: '20px auto'
+              }} />
+            </div>
+          )}
+
           {/* Render different pages based on current route */}
           {currentPage === 'profile' ? (
             <ProtectedRoute>
@@ -95,65 +129,6 @@ const App = () => {
             </ProtectedRoute>
           ) : (
             <>
-              {/* Header */}
-              <header style={{ 
-                textAlign: 'center', 
-                marginBottom: '30px', 
-                padding: '20px',
-                backgroundColor: 'white',
-                borderRadius: '8px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-              }}>
-                <h1 style={{ 
-                  color: '#333', 
-                  margin: '0 0 10px 0',
-                  fontSize: '2.5em'
-                }}>
-                  🏠 Telecom Network Performance Host Application
-                </h1>
-                <p style={{ 
-                  color: '#666', 
-                  margin: '0 0 15px 0',
-                  fontSize: '1.1em'
-                }}>
-                  End-to-End Network Engineering & Data Pipeline Management Dashboard
-                </p>
-                
-                {/* Navigation */}
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginTop: '20px' }}>
-                  <button 
-                    onClick={() => navigateTo('dashboard')}
-                    style={{
-                      backgroundColor: currentPage === 'dashboard' ? '#2196F3' : '#ccc',
-                      color: 'white',
-                      border: 'none',
-                      padding: '10px 20px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    🏠 Dashboard
-                  </button>
-                  <button 
-                    onClick={() => navigateTo('profile')}
-                    style={{
-                      backgroundColor: currentPage === 'profile' ? '#2196F3' : '#ccc',
-                      color: 'white',
-                      border: 'none',
-                      padding: '10px 20px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    👤 Profile
-                  </button>
-                </div>
-              </header>
-
               {/* Connection Status */}
               <div style={{ 
                 marginBottom: '20px',

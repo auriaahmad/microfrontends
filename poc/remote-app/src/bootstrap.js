@@ -5,14 +5,18 @@ import SyncedCounter from "./SyncedCounter";
 import UnsyncedCounter from "./UnsyncedCounter";
 import LoginComponent from "./LoginComponent";
 import { AuthProvider } from "./AuthContext";
+import Header from "./Header";
 
 const App = () => (
   <AuthProvider>
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <h1 style={{ color: '#2196F3', marginBottom: '20px' }}>
+    <div style={{ padding: '20px', margin: '0 auto' }}>
+      {/* <h1 style={{ color: '#2196F3', marginBottom: '20px' }}>
         🔄 Remote App - Authentication Service
-      </h1>
+      </h1> */}
       
+      <div style={{ marginBottom: '30px' }}>
+        <Header />
+      </div>
       <div style={{ marginBottom: '30px' }}>
         <LoginComponent />
       </div>
@@ -36,6 +40,7 @@ const App = () => (
         backgroundColor: '#e8f5e8',
         borderRadius: '4px',
         fontSize: '12px',
+        fontFamily: 'Arial, sans-serif',
         color: '#2e7d32'
       }}>
         ✅ Remote app running on localhost:3001 | Components exported via Module Federation
