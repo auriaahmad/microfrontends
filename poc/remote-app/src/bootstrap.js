@@ -40,7 +40,6 @@ const App = () => (
         backgroundColor: '#e8f5e8',
         borderRadius: '4px',
         fontSize: '12px',
-        fontFamily: 'Arial, sans-serif',
         color: '#2e7d32'
       }}>
         ✅ Remote app running on localhost:3001 | Components exported via Module Federation

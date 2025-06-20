@@ -103,7 +103,7 @@ function renderUnauthorizedProfile() {
             <h2 style="color: #f44336;">Unauthorized Access</h2>
             <p style="color: #666; margin: 20px 0;">You need to be authenticated to access this profile page.</p>
             <div style="display: flex; gap: 15px; justify-content: center;">
-                <button onclick="window.location.href='http://localhost/typo3-poc/dashboard'" style="background: #2196F3; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px;">
+                <button onclick="window.location.href='http://typo3.local/typo3-poc/dashboard'" style="background: #2196F3; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px;">
                     🏠 Go to Home
                 </button>
                 <button onclick="window.location.reload()" style="background: #ff9800; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px;">
@@ -117,14 +117,34 @@ function renderUnauthorizedProfile() {
 // Logout function
 function logoutUser() {
     console.log('🚪 Logging out user');
-    
-    // Clear all auth data
+
+    // 1. Remove token from all storages
     sessionStorage.removeItem('jwt_token');
     sessionStorage.removeItem('user_data');
     localStorage.removeItem('refreshToken');
-    
-    // Redirect to dashboard
-    window.location.href = 'http://localhost/typo3-poc/dashboard';
+
+    // 2. Inform other components/tabs
+
+    // ✅ A. Broadcast to other frames/apps in same tab
+    window.postMessage({
+        type: 'AUTH_LOGOUT',
+        payload: { timestamp: Date.now() }
+    }, '*');
+
+    // ✅ B. Dispatch custom event (for React contexts or vanilla handlers)
+    const logoutEvent = new CustomEvent('auth-change', {
+        detail: { type: 'logout' }
+    });
+    window.dispatchEvent(logoutEvent);
+
+    // ✅ C. Trigger cross-tab sync using a dummy localStorage write
+    localStorage.setItem('auth_sync', JSON.stringify({
+        type: 'LOGOUT',
+        timestamp: Date.now()
+    }));
+
+    // 3. Redirect or show logout UI
+    window.location.href = 'http://typo3.local/typo3-poc/dashboard';
 }
 
 // Load remote header (optional - can be removed if causing issues)
@@ -147,7 +167,7 @@ async function loadRemoteHeader() {
         if (!window.remoteCounter) {
             await new Promise((resolve, reject) => {
                 const script = document.createElement('script');
-                script.src = 'http://localhost:3001/remoteEntry.js';
+                script.src = 'http://typo3.local:3001/remoteEntry.js';
                 script.onload = resolve;
                 script.onerror = reject;
                 document.head.appendChild(script);
@@ -170,7 +190,7 @@ async function loadRemoteHeader() {
                     currentPage: 'profile',
                     onNavigate: (page) => {
                         if (page === 'dashboard') {
-                            window.location.href = 'http://localhost/typo3-poc/dashboard';
+                            window.location.href = 'http://typo3.local/typo3-poc/dashboard';
                         }
                     }
                 }));
@@ -184,6 +204,18 @@ async function loadRemoteHeader() {
 // Initialize - Run ONCE
 console.log('🚀 Initializing profile page');
 checkAuthOnce();  // Check auth only once
+window.addEventListener('storage', (event) => {
+    if (event.key === 'auth_sync') {
+        const data = JSON.parse(event.newValue);
+        if (data?.type === 'LOGOUT') {
+            console.log('🔄 Profile: Detected logout from another tab');
+            sessionStorage.removeItem('jwt_token');
+            sessionStorage.removeItem('user_data');
+            renderUnauthorizedProfile();
+        }
+    }
+});
+
 loadRemoteHeader();  // Load header
 
 // Listen for auth changes (but don't poll)

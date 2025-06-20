@@ -14,7 +14,7 @@ module.exports = {
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "*",
     },
-    allowedHosts: "all", // 🔥 This avoids 403 for custom domains like typo3.local
+    allowedHosts: "all", 
   },
   output: {
     publicPath: "http://localhost:3001/",
