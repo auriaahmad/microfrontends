@@ -94,7 +94,7 @@ const LoginComponent = () => {
                   borderRadius: '4px',
                   fontSize: '14px'
                 }}
-                placeholder="telecom_admin or network_engineer"
+                placeholder="admin or engineer"
               />
             </div>
             
@@ -158,8 +158,8 @@ const LoginComponent = () => {
             fontSize: '12px'
           }}>
             <strong>Test Credentials:</strong><br />
-            Username: <code>telecom_admin</code> | Password: <code>password123</code><br />
-            Username: <code>network_engineer</code> | Password: <code>password123</code>
+            Username: <code>admin</code> | Password: <code>password123</code><br />
+            Username: <code>engineer</code> | Password: <code>password123</code>
           </div>
         </div>
       ) : (

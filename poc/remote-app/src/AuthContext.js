@@ -1,4 +1,4 @@
-// src/AuthContext.js - Clean Remote App (Authentication Only)
+// src/AuthContext.js - Secured Remote App (Authentication + API Proxy)
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
@@ -32,53 +32,106 @@ export const AuthProvider = ({ children }) => {
     addLog('🧹 Logs cleared');
   };
 
-  // Secure token sharing with host apps
-  const shareTokenWithHost = (token, user) => {
-    addLog(`🔄 Sharing token with host apps`);
+  // Secure auth status sharing with host apps (NO TOKEN SHARING)
+  const shareAuthStatusWithHost = (isAuthenticated, user) => {
+    addLog(`🔄 Sharing auth status with host apps (no tokens)`);
+
+    const authPayload = {
+      type: 'AUTH_STATUS_UPDATE',
+      payload: {
+        isAuthenticated,
+        user: user ? {
+          username: user.username,
+          email: user.email,
+          role: user.role
+        } : null,
+        timestamp: Date.now(),
+        source: 'remoteAuth'
+      }
+    };
 
     // Share with parent window (for iframe scenario)
     if (window.parent !== window) {
-      window.parent.postMessage({
-        type: 'AUTH_TOKEN_UPDATE',
-        payload: {
-          accessToken: token,
-          user: user,
-          timestamp: Date.now(),
-          source: 'remoteCounter'
-        }
-      }, '*');
+      window.parent.postMessage(authPayload, '*');
     }
 
     // Share with same window (for module federation scenario)
-    window.postMessage({
-      type: 'AUTH_TOKEN_UPDATE',
-      payload: {
-        accessToken: token,
-        user: user,
-        timestamp: Date.now(),
-        source: 'remoteCounter'
-      }
-    }, '*');
+    window.postMessage(authPayload, '*');
 
-    // Store in sessionStorage for host app access
-    sessionStorage.setItem('jwt_token', token);
-    sessionStorage.setItem('user_data', JSON.stringify(user));
+    addLog('🔒 Auth status shared securely (tokens kept private)');
   };
 
-  // Enhanced storage management
+  // Enhanced storage management (only refresh token)
   const clearStorage = () => {
     localStorage.removeItem('refreshToken');
-    sessionStorage.removeItem('jwt_token');
-    sessionStorage.removeItem('user_data');
-    addLog('🧹 All storage cleared');
+    addLog('🧹 Storage cleared');
   };
 
-  // Listen for token requests from host apps
+  // Secure API proxy for host apps
+  const makeSecureAPICall = async (endpoint, options = {}) => {
+    if (!accessToken) {
+      throw new Error('Not authenticated');
+    }
+    
+    try {
+      addLog(`🔄 Proxying API call: ${endpoint}`);
+      
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          ...options.headers
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        addLog(`✅ API call successful: ${endpoint}`);
+        return { success: true, data, status: response.status };
+      } else {
+        addLog(`❌ API call failed: ${data.error}`);
+        return { success: false, error: data.error, status: response.status };
+      }
+    } catch (error) {
+      addLog(`🚨 API call error: ${error.message}`);
+      return { success: false, error: error.message, status: 500 };
+    }
+  };
+
+  // Listen for messages from host apps
   useEffect(() => {
     const handleMessage = (event) => {
-      if (event.data.type === 'REQUEST_AUTH_TOKEN' && accessToken) {
-        addLog('🔑 Host requested token, sharing existing token');
-        shareTokenWithHost(accessToken, user);
+      // Handle auth status requests
+      if (event.data.type === 'REQUEST_AUTH_STATUS') {
+        addLog('🔑 Host requested auth status');
+        shareAuthStatusWithHost(!!user, user);
+        return;
+      }
+
+      // Handle API requests from host apps
+      if (event.data?.type === 'API_REQUEST' && accessToken) {
+        const { endpoint, options = {}, requestId } = event.data.payload;
+        
+        addLog(`📨 Received API request: ${endpoint} (ID: ${requestId})`);
+        
+        // Process API request
+        makeSecureAPICall(endpoint, options).then(result => {
+          const responsePayload = {
+            type: 'API_RESPONSE',
+            payload: { ...result, requestId }
+          };
+
+          // Send response back to host
+          if (window.parent !== window) {
+            window.parent.postMessage(responsePayload, '*');
+          }
+          
+          window.postMessage(responsePayload, '*');
+          
+          addLog(`📤 API response sent (ID: ${requestId})`);
+        });
       }
     };
 
@@ -107,8 +160,8 @@ export const AuthProvider = ({ children }) => {
         setAccessToken(data.accessToken);
         setRefreshToken(data.refreshToken);
 
-        // Share token with host apps and store in session
-        shareTokenWithHost(data.accessToken, data.user);
+        // Share auth status (not tokens) with host apps
+        shareAuthStatusWithHost(true, data.user);
 
         // Store refresh token securely
         localStorage.setItem('refreshToken', data.refreshToken);
@@ -146,17 +199,20 @@ export const AuthProvider = ({ children }) => {
       clearStorage();
 
       // Notify host apps of logout
+      const logoutPayload = {
+        type: 'AUTH_STATUS_UPDATE',
+        payload: { 
+          isAuthenticated: false, 
+          user: null, 
+          timestamp: Date.now() 
+        }
+      };
+
       if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'AUTH_LOGOUT',
-          payload: { timestamp: Date.now() }
-        }, '*');
+        window.parent.postMessage(logoutPayload, '*');
       }
 
-      window.postMessage({
-        type: 'AUTH_LOGOUT',
-        payload: { timestamp: Date.now() }
-      }, '*');
+      window.postMessage(logoutPayload, '*');
 
       addLog('✅ Logout completed');
     }
@@ -184,8 +240,8 @@ export const AuthProvider = ({ children }) => {
         setRefreshToken(data.refreshToken);
         localStorage.setItem('refreshToken', data.refreshToken);
 
-        // Share new token with host apps
-        shareTokenWithHost(data.accessToken, user);
+        // Share updated auth status (not token) with host apps
+        shareAuthStatusWithHost(true, user);
         addLog('✅ Token refresh successful');
 
         return true;
@@ -218,7 +274,7 @@ export const AuthProvider = ({ children }) => {
   // Initialize auth state on mount
   useEffect(() => {
     const initAuth = async () => {
-      addLog('🚀 Remote app initializing auth state');
+      addLog('🚀 Secure remote app initializing auth state');
 
       const storedRefreshToken = localStorage.getItem('refreshToken');
       if (storedRefreshToken) {
@@ -251,7 +307,7 @@ export const AuthProvider = ({ children }) => {
               if (profileResponse.ok) {
                 const profileData = await profileResponse.json();
                 setUser(profileData.user);
-                shareTokenWithHost(data.accessToken, profileData.user);
+                shareAuthStatusWithHost(true, profileData.user);
                 addLog(`✅ Auto-login successful for: ${profileData.user.username}`);
               }
             } catch (error) {
@@ -276,7 +332,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
-    accessToken,
+    accessToken: null, // Hidden from host apps for security
     login,
     logout,
     loading,
@@ -284,6 +340,7 @@ export const AuthProvider = ({ children }) => {
     logs,
     clearLogs,
     addLog,
+    makeSecureAPICall, // For internal remote app use only
     clearStorage: () => {
       clearStorage();
       setUser(null);

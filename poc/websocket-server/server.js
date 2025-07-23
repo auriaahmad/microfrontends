@@ -25,15 +25,15 @@ app.use(express.json());
 const users = [
   {
     id: 1,
-    username: 'telecom_admin',
-    email: 'admin@telecom.com',
+    username: 'admin',
+    email: 'admin@test.com',
     password: 'password123', // Plain text for demo (hash in production)
     role: 'admin'
   },
   {
     id: 2,
-    username: 'network_engineer',
-    email: 'engineer@telecom.com',
+    username: 'engineer',
+    email: 'engineer@test.com',
     password: 'password123', // Plain text for demo (hash in production)
     role: 'engineer'
   }
@@ -268,8 +268,8 @@ app.listen(HTTP_PORT, () => {
   console.log('  GET  /api/network/stats (protected)');
   console.log('');
   console.log('Test credentials:');
-  console.log('  Username: telecom_admin, Password: password123');
-  console.log('  Username: network_engineer, Password: password123');
+  console.log('  Username: admin, Password: password123');
+  console.log('  Username: engineer, Password: password123');
   console.log('');
   console.log('WebSocket counter functionality preserved on port 8080 - completely unchanged');
 });

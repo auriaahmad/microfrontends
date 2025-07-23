@@ -1,224 +1,123 @@
-// src/JWTContext.js - Next.js Host App (No Polling Version)
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+// src/JWTContext.js - Simplified Host App (Auth Status Only)
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const JWTContext = createContext();
 
 export const JWTProvider = ({ children }) => {
-  const [token, setToken] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [logs, setLogs] = useState([]);
-  
-  // Refs to track current state without causing re-renders
-  const currentTokenRef = useRef(null);
-  const initializingRef = useRef(false);
 
-  const addLog = (message) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
-    console.log(`🏠 Host JWT: ${message}`);
-  };
-
-  // Load authentication from storage
-  const loadFromStorage = () => {
-    try {
-      const storedToken = sessionStorage.getItem('jwt_token');
-      const storedUser = sessionStorage.getItem('user_data');
-      
-      if (storedToken && storedUser) {
-        const userData = JSON.parse(storedUser);
-        setToken(storedToken);
-        setUser(userData);
-        currentTokenRef.current = storedToken;
-        addLog('✅ Authentication data loaded from storage');
-        return true;
-      } else {
-        // Clear state if no stored data
-        if (currentTokenRef.current) {
-          setToken(null);
-          setUser(null);
-          currentTokenRef.current = null;
-          addLog('🧹 Cleared authentication state');
-        }
-        return false;
-      }
-    } catch (error) {
-      addLog(`❌ Error loading from storage: ${error.message}`);
-      return false;
-    }
-  };
-
-  // Setup event-driven authentication detection
   useEffect(() => {
-    if (initializingRef.current) return;
-    initializingRef.current = true;
-
-    addLog('🏠 Host JWT Context initializing...');
-
-    // 1. Load initial state
-    loadFromStorage();
-    setIsLoading(false);
-
-    // 2. Listen for storage events (cross-tab changes)
-    const handleStorageChange = (e) => {
-      if (e.key === 'jwt_token' || e.key === 'user_data') {
-        addLog(`📦 Storage event detected: ${e.key}`);
-        loadFromStorage();
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-
-    // 3. Listen for PostMessage events (same-tab communication)
+    // Listen for auth status from remote app
     const handleMessage = (event) => {
-      if (event.data?.type === 'AUTH_TOKEN_UPDATE') {
-        const { accessToken, user } = event.data.payload;
-        addLog('📨 Received auth update via PostMessage');
+      if (event.data?.type === 'AUTH_STATUS_UPDATE') {
+        const { isAuthenticated: authStatus, user: userData } = event.data.payload;
         
-        // Update storage first
-        sessionStorage.setItem('jwt_token', accessToken);
-        sessionStorage.setItem('user_data', JSON.stringify(user));
+        setIsAuthenticated(authStatus);
+        setUser(userData);
+        setIsLoading(false);
         
-        // Update state
-        setToken(accessToken);
-        setUser(user);
-        currentTokenRef.current = accessToken;
-      } else if (event.data?.type === 'AUTH_LOGOUT') {
-        addLog('📨 Received logout via PostMessage');
-        logout();
+        console.log(`🏠 Host: Auth status updated - ${authStatus ? 'authenticated' : 'not authenticated'}`);
       }
     };
+
     window.addEventListener('message', handleMessage);
 
-    // 4. Listen for page visibility changes (user returns to tab)
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        addLog('👁️ Tab became visible, checking auth state...');
-        
-        // Only check if we might have missed an update
-        const storedToken = sessionStorage.getItem('jwt_token');
-        if (storedToken !== currentTokenRef.current) {
-          addLog('🔄 Auth state changed while tab was hidden');
-          loadFromStorage();
-        }
+    // Request initial auth status from remote
+    const requestAuthStatus = () => {
+      window.postMessage({
+        type: 'REQUEST_AUTH_STATUS',
+        payload: { timestamp: Date.now() }
+      }, '*');
+    };
+
+    // Request status after small delay to ensure remote is ready
+    setTimeout(requestAuthStatus, 100);
+
+    // Fallback: if no response in 2 seconds, assume not authenticated
+    const fallbackTimeout = setTimeout(() => {
+      if (isLoading) {
+        setIsLoading(false);
+        setIsAuthenticated(false);
+        setUser(null);
+        console.log('🏠 Host: Auth check timeout - assuming not authenticated');
       }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    }, 2000);
 
-    // 5. Listen for window focus (additional safety)
-    const handleFocus = () => {
-      const storedToken = sessionStorage.getItem('jwt_token');
-      if (storedToken !== currentTokenRef.current) {
-        addLog('🎯 Focus: Auth state changed');
-        loadFromStorage();
-      }
-    };
-    window.addEventListener('focus', handleFocus);
-
-    // 6. Custom authentication events
-    const handleCustomAuthEvent = (event) => {
-      addLog('🔔 Custom auth event received');
-      loadFromStorage();
-    };
-    window.addEventListener('auth-change', handleCustomAuthEvent);
-
-    // Cleanup function
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('message', handleMessage);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('auth-change', handleCustomAuthEvent);
-      addLog('🧹 Event listeners cleaned up');
+      clearTimeout(fallbackTimeout);
     };
-  }, []);
+  }, [isLoading]);
 
-  // Function to make authenticated requests
-  const makeAuthenticatedRequest = async (url, options = {}) => {
-    const currentToken = token || sessionStorage.getItem('jwt_token');
-    
-    if (!currentToken) {
-      throw new Error('No authentication token available');
+  // Make API requests through remote proxy
+  const makeAuthenticatedRequest = async (endpoint, options = {}) => {
+    if (!isAuthenticated) {
+      throw new Error('Not authenticated - please login first');
     }
 
-    const authHeaders = {
-      'Authorization': `Bearer ${currentToken}`,
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
-    try {
-      addLog(`🔄 Making authenticated request to ${url}`);
-      
-      const response = await fetch(url, {
-        ...options,
-        headers: authHeaders,
-      });
-
-      if (response.status === 401) {
-        addLog('❌ Token expired, clearing authentication');
-        logout();
-        throw new Error('Authentication token expired');
-      }
-
-      return response;
-    } catch (error) {
-      addLog(`❌ Request failed: ${error.message}`);
-      throw error;
-    }
-  };
-
-  // Logout function
-  const logout = () => {
-    addLog('🚪 Logging out...');
+    const requestId = Date.now().toString(36) + Math.random().toString(36).substr(2);
     
-    // Clear storage
-    sessionStorage.removeItem('jwt_token');
-    sessionStorage.removeItem('user_data');
-    
-    // Clear state
-    setToken(null);
-    setUser(null);
-    currentTokenRef.current = null;
-    
-    // Notify other components
-    window.postMessage({
-      type: 'AUTH_LOGOUT',
-      payload: { timestamp: Date.now() }
-    }, '*');
-    
-    // Dispatch custom event
-    window.dispatchEvent(new CustomEvent('auth-change', {
-      detail: { type: 'logout' }
-    }));
-  };
+    return new Promise((resolve, reject) => {
+      // Listen for response
+      const handleResponse = (event) => {
+        if (event.data?.type === 'API_RESPONSE' && event.data.payload.requestId === requestId) {
+          window.removeEventListener('message', handleResponse);
+          
+          const { success, data, error, status } = event.data.payload;
+          
+          if (success) {
+            // Return Response-like object
+            resolve({
+              ok: status < 400,
+              status,
+              json: () => Promise.resolve(data),
+              text: () => Promise.resolve(JSON.stringify(data))
+            });
+          } else {
+            reject(new Error(error || 'API request failed'));
+          }
+        }
+      };
 
-  // Manual login function (for testing)
-  const login = (newToken, newUser) => {
-    addLog('🔑 Manual login called');
-    sessionStorage.setItem('jwt_token', newToken);
-    sessionStorage.setItem('user_data', JSON.stringify(newUser));
-    setToken(newToken);
-    setUser(newUser);
-    currentTokenRef.current = newToken;
-    
-    // Notify other components
-    window.postMessage({
-      type: 'AUTH_TOKEN_UPDATE',
-      payload: { accessToken: newToken, user: newUser }
-    }, '*');
+      window.addEventListener('message', handleResponse);
+
+      // Set timeout
+      const timeout = setTimeout(() => {
+        window.removeEventListener('message', handleResponse);
+        reject(new Error('API request timeout'));
+      }, 10000);
+
+      // Send request to remote
+      window.postMessage({
+        type: 'API_REQUEST',
+        payload: {
+          endpoint: endpoint.replace('http://localhost:3002/api', ''),
+          options,
+          requestId
+        }
+      }, '*');
+
+      // Clear timeout when resolved/rejected
+      const originalResolve = resolve;
+      const originalReject = reject;
+      resolve = (...args) => {
+        clearTimeout(timeout);
+        originalResolve(...args);
+      };
+      reject = (...args) => {
+        clearTimeout(timeout);
+        originalReject(...args);
+      };
+    });
   };
 
   const value = {
-    token,
     user,
+    isAuthenticated,
     isLoading,
-    login,
-    logout,
-    isAuthenticated: !!token && !!user,
-    accessToken: token, // Alias for ProfilePage compatibility
-    makeAuthenticatedRequest,
-    addLog,
-    logs
+    makeAuthenticatedRequest
   };
 
   return (
@@ -234,145 +133,4 @@ export const useJWT = () => {
     throw new Error('useJWT must be used within a JWTProvider');
   }
   return context;
-};
-
-// 🚀 Enhanced version with RxJS (optional)
-export class NextJSAuthService {
-  constructor() {
-    // Only load RxJS if available
-    if (typeof window !== 'undefined' && window.rxjs) {
-      this.setupRxJSAuth();
-    } else {
-      console.log('RxJS not available, using event-based approach');
-    }
-  }
-
-  setupRxJSAuth() {
-    const { BehaviorSubject, fromEvent, merge } = window.rxjs;
-    const { map, filter, distinctUntilChanged, debounceTime } = window.rxjs.operators;
-
-    // Main auth state stream
-    this.authState$ = new BehaviorSubject(this.getInitialState());
-
-    // Storage change stream
-    const storageChanges$ = fromEvent(window, 'storage').pipe(
-      filter(event => event.key === 'jwt_token' || event.key === 'user_data'),
-      map(() => this.getInitialState())
-    );
-
-    // PostMessage stream
-    const messageStream$ = fromEvent(window, 'message').pipe(
-      filter(event => 
-        event.data?.type === 'AUTH_TOKEN_UPDATE' || 
-        event.data?.type === 'AUTH_LOGOUT'
-      ),
-      map(event => this.mapMessageToState(event.data))
-    );
-
-    // Visibility change stream
-    const visibilityChange$ = fromEvent(document, 'visibilitychange').pipe(
-      filter(() => !document.hidden),
-      debounceTime(100),
-      map(() => this.getInitialState())
-    );
-
-    // Merge all streams
-    const allEvents$ = merge(
-      storageChanges$,
-      messageStream$,
-      visibilityChange$
-    ).pipe(
-      distinctUntilChanged((prev, curr) => 
-        prev.token === curr.token && 
-        prev.user?.username === curr.user?.username
-      )
-    );
-
-    // Subscribe to updates
-    allEvents$.subscribe(newState => {
-      this.authState$.next(newState);
-    });
-
-    console.log('🔥 NextJS RxJS Auth Service initialized');
-  }
-
-  getInitialState() {
-    if (typeof window === 'undefined') return { isAuthenticated: false, user: null, token: null };
-    
-    const token = sessionStorage.getItem('jwt_token');
-    const userData = sessionStorage.getItem('user_data');
-    
-    return {
-      isAuthenticated: !!(token && userData),
-      user: userData ? JSON.parse(userData) : null,
-      token
-    };
-  }
-
-  mapMessageToState(data) {
-    if (data.type === 'AUTH_TOKEN_UPDATE') {
-      return {
-        isAuthenticated: true,
-        user: data.payload.user,
-        token: data.payload.accessToken
-      };
-    } else if (data.type === 'AUTH_LOGOUT') {
-      return {
-        isAuthenticated: false,
-        user: null,
-        token: null
-      };
-    }
-    return this.getInitialState();
-  }
-
-  // Subscribe to auth changes
-  subscribe(callback) {
-    if (this.authState$) {
-      return this.authState$.subscribe(callback);
-    } else {
-      // Fallback for non-RxJS environment
-      const handler = () => callback(this.getInitialState());
-      window.addEventListener('storage', handler);
-      window.addEventListener('message', handler);
-      return () => {
-        window.removeEventListener('storage', handler);
-        window.removeEventListener('message', handler);
-      };
-    }
-  }
-}
-
-// Example usage in Next.js pages
-export const useNextJSAuth = () => {
-  const [authState, setAuthState] = useState(() => {
-    if (typeof window === 'undefined') return { isAuthenticated: false, user: null, token: null };
-    
-    const token = sessionStorage.getItem('jwt_token');
-    const userData = sessionStorage.getItem('user_data');
-    
-    return {
-      isAuthenticated: !!(token && userData),
-      user: userData ? JSON.parse(userData) : null,
-      token
-    };
-  });
-
-  useEffect(() => {
-    const authService = new NextJSAuthService();
-    
-    const subscription = authService.subscribe((newState) => {
-      setAuthState(newState);
-    });
-
-    return () => {
-      if (typeof subscription === 'function') {
-        subscription();
-      } else {
-        subscription.unsubscribe();
-      }
-    };
-  }, []);
-
-  return authState;
 };

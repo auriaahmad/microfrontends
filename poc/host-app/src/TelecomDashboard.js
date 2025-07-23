@@ -1,4 +1,4 @@
-// src/TelecomDashboard.js - Simplified Host App Dashboard
+// src/TelecomDashboard.js - Corrected Dashboard with Remote API Proxy
 import React, { useState } from 'react';
 import { useJWT } from './JWTContext';
 
@@ -6,12 +6,7 @@ const TelecomDashboard = () => {
   const { 
     isAuthenticated, 
     user, 
-    makeAuthenticatedRequest, 
-    accessToken, 
-    logs,
-    clearLogs,
-    logout,
-    addLog
+    makeAuthenticatedRequest // Uses secure proxy from simplified JWTContext
   } = useJWT();
   
   // API Testing States
@@ -19,19 +14,36 @@ const TelecomDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showLogs, setShowLogs] = useState(false);
+  
+  // Local logging (since removed from JWTContext)
+  const [logs, setLogs] = useState([]);
 
-  // Test User Profile API
+  const addLog = (message) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
+    console.log(`🧪 Dashboard: ${message}`);
+  };
+
+  const clearLogs = () => {
+    setLogs([]);
+    addLog('🧹 Dashboard logs cleared');
+  };
+
+  // Test User Profile API via Remote App Proxy
   const fetchUserProfile = async () => {
     setLoading(true);
     setError('');
+    setProfileData(null);
     
     try {
+      addLog('🔄 Requesting API call through remote app proxy');
+      
       const response = await makeAuthenticatedRequest('http://localhost:3002/api/user/profile');
       
       if (response.ok) {
         const data = await response.json();
         setProfileData(data);
-        addLog('✅ User profile fetched successfully');
+        addLog('✅ User profile fetched successfully via proxy');
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Failed to fetch profile data');
@@ -61,27 +73,16 @@ const TelecomDashboard = () => {
             ✅ Network Access Authenticated
           </h4>
           <div style={{ marginBottom: '10px' }}>
-            <strong>Engineer:</strong> {user.username} | 
-            <strong> Email:</strong> {user.email} | 
-            <strong> Role:</strong> {user.role}
+            <strong>Engineer:</strong> {user?.username} | 
+            <strong> Email:</strong> {user?.email} | 
+            <strong> Role:</strong> {user?.role}
           </div>
           <div style={{ marginBottom: '15px', fontSize: '12px', color: '#666' }}>
-            <strong>JWT Token:</strong> {accessToken ? `${accessToken.substring(0, 30)}...` : 'None'}
+            <strong>Authentication:</strong> 
+            <span style={{ color: '#4CAF50', marginLeft: '8px' }}>
+              🔒 Secured via Remote App
+            </span>
           </div>
-          <button 
-            onClick={logout}
-            style={{
-              backgroundColor: '#f44336',
-              color: 'white',
-              border: 'none',
-              padding: '8px 16px',
-              borderRadius: '4px',
-              fontSize: '12px',
-              cursor: 'pointer'
-            }}
-          >
-            Logout
-          </button>
         </div>
       ) : (
         <div style={{ 
@@ -96,12 +97,12 @@ const TelecomDashboard = () => {
             🔐 Authentication Required
           </h4>
           <p style={{ color: '#666', margin: 0 }}>
-            Please authenticate using the remote authentication component above to access telecom APIs.
+            Please authenticate using the remote authentication component above to access telecom features.
           </p>
         </div>
       )}
 
-      {/* API Testing Section */}
+      {/* Secure API Testing Section */}
       <div style={{ 
         backgroundColor: '#f8f9fa',
         padding: '20px',
@@ -110,7 +111,7 @@ const TelecomDashboard = () => {
         marginBottom: '20px'
       }}>
         <h4 style={{ margin: '0 0 15px 0', color: '#495057' }}>
-          🧪 Network Performance API Testing
+          🧪 Secure API Testing (via Remote App Proxy)
         </h4>
         
         <div style={{ marginBottom: '15px' }}>
@@ -120,8 +121,19 @@ const TelecomDashboard = () => {
             marginLeft: '10px',
             fontWeight: 'bold'
           }}>
-            {isAuthenticated ? '🟢 Ready for Testing' : '🔴 Authentication Required'}
+            {isAuthenticated ? '🟢 Ready for Secure Testing' : '🔴 Authentication Required'}
           </span>
+        </div>
+
+        <div style={{ 
+          backgroundColor: '#e3f2fd',
+          padding: '10px',
+          borderRadius: '4px',
+          marginBottom: '15px',
+          fontSize: '12px',
+          color: '#1976d2'
+        }}>
+          🔒 <strong>Security:</strong> All API calls are proxied through the remote app. No direct backend access from host app.
         </div>
 
         <button 
@@ -138,9 +150,9 @@ const TelecomDashboard = () => {
             fontSize: '16px',
             fontWeight: 'bold'
           }}
-          title={!isAuthenticated ? 'Please authenticate first to test API calls' : 'Test authenticated API call'}
+          title={!isAuthenticated ? 'Please authenticate first to test API calls' : 'Test secure API call via remote app proxy'}
         >
-          {loading ? 'Testing API...' : 'Test User Profile API'}
+          {loading ? 'Testing Secure API...' : 'Test User Profile API (Secure)'}
         </button>
 
         {error && (
@@ -168,8 +180,18 @@ const TelecomDashboard = () => {
           marginBottom: '20px'
         }}>
           <h4 style={{ margin: '0 0 15px 0', color: '#333' }}>
-            📊 API Response - User Profile:
+            📊 Secure API Response (via Remote App Proxy):
           </h4>
+          <div style={{ 
+            backgroundColor: '#e8f5e8',
+            padding: '10px',
+            borderRadius: '4px',
+            marginBottom: '15px',
+            fontSize: '12px',
+            color: '#2e7d32'
+          }}>
+            ✅ <strong>Security Notice:</strong> This data was retrieved through the remote app proxy. No tokens were exposed to this host app.
+          </div>
           <pre style={{ 
             backgroundColor: '#f5f5f5',
             padding: '15px',
@@ -184,7 +206,27 @@ const TelecomDashboard = () => {
         </div>
       )}
 
-      {/* Activity Logs - Compact */}
+      {/* Security Information */}
+      <div style={{
+        backgroundColor: '#e7f3ff',
+        border: '2px solid #2196F3',
+        padding: '20px',
+        borderRadius: '8px',
+        marginBottom: '20px'
+      }}>
+        <h5 style={{ color: '#2196F3', margin: '0 0 15px 0' }}>
+          🔒 Security Architecture
+        </h5>
+        <ul style={{ color: '#666', margin: 0, lineHeight: '1.6', paddingLeft: '20px' }}>
+          <li>✅ API calls proxied through secure remote app</li>
+          <li>✅ Authentication managed by remote app only</li>
+          <li>✅ JWT tokens never exposed to host application</li>
+          <li>✅ All communication via secure postMessage API</li>
+          <li>✅ Zero direct backend access from host app</li>
+        </ul>
+      </div>
+
+      {/* Dashboard Activity Logs */}
       <div style={{ 
         backgroundColor: '#f5f5f5',
         padding: '15px',
@@ -193,7 +235,7 @@ const TelecomDashboard = () => {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
           <h4 style={{ margin: '0', color: '#666', fontSize: '16px' }}>
-            📋 Activity Logs
+            📋 Dashboard Activity Logs
           </h4>
           <div>
             <button 

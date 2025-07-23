@@ -1,51 +1,56 @@
-// src/ProfilePage.js - Protected Profile Page
-import React, { useState, useEffect } from 'react';
+// src/ProfilePage.js - Clean Protected Profile Page (With Loading State)
+import React from 'react';
 import { useJWT } from './JWTContext';
 
 const ProfilePage = () => {
   const { 
     isAuthenticated, 
-    user, 
-    makeAuthenticatedRequest, 
-    accessToken, 
-    addLog,
-    logout 
+    user,
+    isLoading
   } = useJWT();
-  
-  const [profileData, setProfileData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  // Fetch detailed profile data on component mount
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchDetailedProfile();
-    }
-  }, [isAuthenticated]);
-
-  const fetchDetailedProfile = async () => {
-    setLoading(true);
-    setError('');
-    
-    try {
-      const response = await makeAuthenticatedRequest('http://localhost:3002/api/user/profile');
-      
-      if (response.ok) {
-        const data = await response.json();
-        setProfileData(data);
-        addLog('✅ Detailed profile data loaded for profile page');
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to fetch detailed profile');
-        addLog(`❌ Profile page data fetch failed: ${errorData.error}`);
-      }
-    } catch (error) {
-      setError(error.message);
-      addLog(`❌ Profile page error: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh',
+        backgroundColor: '#f0f2f5' 
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '60px',
+            height: '60px',
+            border: '6px solid #e3f2fd',
+            borderTop: '6px solid #2196f3',
+            borderRadius: '50%',
+            margin: '0 auto 20px'
+          }} className="loading-spinner" />
+          <h3 style={{ color: '#666', margin: '0 0 10px 0' }}>
+            🔄 Checking Authentication
+          </h3>
+          <p style={{ color: '#888', margin: 0, fontSize: '14px' }}>
+            Please wait while we verify your access...
+          </p>
+        </div>
+        
+        {/* Add CSS animation to document head */}
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            .loading-spinner {
+              animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `
+        }} />
+      </div>
+    );
+  }
 
   // Show unauthorized message if not authenticated
   if (!isAuthenticated) {
@@ -96,31 +101,6 @@ const ProfilePage = () => {
     );
   }
 
-  // Show loading state
-  if (loading) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '60vh' 
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '50px',
-            height: '50px',
-            border: '5px solid #e3f2fd',
-            borderTop: '5px solid #2196f3',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 20px'
-          }} />
-          <p style={{ color: '#666', fontSize: '16px' }}>Loading profile data...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Main profile page content
   return (
     <div style={{ 
@@ -144,14 +124,14 @@ const ProfilePage = () => {
             margin: '0 0 10px 0',
             fontSize: '2.5em'
           }}>
-            👤 Network Engineer Profile
+            👤 Profile Page
           </h1>
           <p style={{ 
             color: '#666', 
             margin: 0,
             fontSize: '1.1em'
           }}>
-            Telecom Data Pipeline & Network Performance Engineering
+            PoC Tesing Profile Page
           </p>
         </div>
 
@@ -163,7 +143,7 @@ const ProfilePage = () => {
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           marginBottom: '30px',
           display: 'flex',
-          justifyContent: 'space-between',
+          justifyContent: 'center',
           alignItems: 'center'
         }}>
           <button 
@@ -179,20 +159,6 @@ const ProfilePage = () => {
             }}
           >
             ← Back to Dashboard
-          </button>
-          <button 
-            onClick={logout}
-            style={{
-              backgroundColor: '#f44336',
-              color: 'white',
-              border: 'none',
-              padding: '8px 16px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            Logout
           </button>
         </div>
 
@@ -215,91 +181,105 @@ const ProfilePage = () => {
           
           <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: '15px', alignItems: 'center' }}>
             <strong>Username:</strong>
-            <span style={{ color: '#333' }}>{user.username}</span>
+            <span style={{ color: '#333' }}>{user?.username || 'N/A'}</span>
             
             <strong>Email:</strong>
-            <span style={{ color: '#333' }}>{user.email}</span>
+            <span style={{ color: '#333' }}>{user?.email || 'N/A'}</span>
             
             <strong>Role:</strong>
             <span style={{ 
               color: 'white', 
-              backgroundColor: user.role === 'admin' ? '#ff5722' : '#2196F3',
+              backgroundColor: user?.role === 'admin' ? '#ff5722' : '#2196F3',
               padding: '4px 12px',
               borderRadius: '16px',
               fontSize: '12px',
               fontWeight: 'bold'
             }}>
-              {user.role}
+              {user?.role || 'N/A'}
             </span>
             
-            <strong>JWT Token:</strong>
+            <strong>Authentication:</strong>
             <span style={{ 
-              fontFamily: 'monospace', 
-              fontSize: '12px', 
-              color: '#666',
-              wordBreak: 'break-all' 
+              color: '#4CAF50',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
             }}>
-              {accessToken ? `${accessToken.substring(0, 50)}...` : 'None'}
+              <span>🔒</span>
+              Secured via Remote App
             </span>
           </div>
         </div>
 
-        {/* API Response Data */}
-        {error ? (
-          <div style={{
-            backgroundColor: '#ffebee',
-            border: '2px solid #f44336',
+        {/* User Data Display */}
+        <div style={{
+          backgroundColor: 'white',
+          padding: '30px',
+          borderRadius: '12px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          marginBottom: '30px'
+        }}>
+          <h3 style={{ 
+            color: '#2196F3', 
+            margin: '0 0 20px 0',
+            borderBottom: '2px solid #2196F3',
+            paddingBottom: '10px'
+          }}>
+            📊 Profile Data (From Remote Auth)
+          </h3>
+          <pre style={{ 
+            backgroundColor: '#f8f9fa',
             padding: '20px',
             borderRadius: '8px',
-            marginBottom: '30px'
+            fontSize: '14px',
+            overflow: 'auto',
+            border: '1px solid #e0e0e0',
+            lineHeight: '1.5'
           }}>
-            <h4 style={{ color: '#f44336', margin: '0 0 10px 0' }}>
-              ❌ Error Loading Profile Data
-            </h4>
-            <p style={{ color: '#666', margin: 0 }}>{error}</p>
-          </div>
-        ) : profileData ? (
-          <div style={{
-            backgroundColor: 'white',
-            padding: '30px',
-            borderRadius: '12px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-            marginBottom: '30px'
-          }}>
-            <h3 style={{ 
-              color: '#2196F3', 
-              margin: '0 0 20px 0',
-              borderBottom: '2px solid #2196F3',
-              paddingBottom: '10px'
-            }}>
-              📊 Detailed Profile API Response
-            </h3>
-            <pre style={{ 
-              backgroundColor: '#f8f9fa',
-              padding: '20px',
-              borderRadius: '8px',
-              fontSize: '14px',
-              overflow: 'auto',
-              maxHeight: '400px',
-              border: '1px solid #e0e0e0',
-              lineHeight: '1.5'
-            }}>
-              {JSON.stringify(profileData, null, 2)}
-            </pre>
-          </div>
-        ) : null}
+            {JSON.stringify(user, null, 2)}
+          </pre>
+        </div>
 
+        {/* Security Info */}
+        <div style={{
+          backgroundColor: '#e8f5e8',
+          border: '2px solid #4CAF50',
+          padding: '20px',
+          borderRadius: '8px',
+          marginBottom: '30px'
+        }}>
+          <h4 style={{ color: '#4CAF50', margin: '0 0 15px 0' }}>
+            🔒 Security Information
+          </h4>
+          <ul style={{ color: '#666', margin: 0, lineHeight: '1.6' }}>
+            <li>✅ No direct API calls from this page</li>
+            <li>✅ Authentication managed by remote app</li>
+            <li>✅ JWT tokens never exposed to host app</li>
+            <li>✅ All data received via secure message passing</li>
+          </ul>
+        </div>
 
+        {/* Loading State Fix Notice */}
+        <div style={{
+          backgroundColor: '#e3f2fd',
+          border: '2px solid #2196F3',
+          padding: '20px',
+          borderRadius: '8px',
+          marginBottom: '30px'
+        }}>
+          <h4 style={{ color: '#2196F3', margin: '0 0 15px 0' }}>
+            🔧 Refresh Issue Fixed
+          </h4>
+          <ul style={{ color: '#666', margin: 0, lineHeight: '1.6' }}>
+            <li>✅ Added loading state for page refresh</li>
+            <li>✅ Prevents premature "Unauthorized Access" error</li>
+            <li>✅ Waits for remote app to initialize auth state</li>
+            <li>✅ Smooth user experience on direct page access</li>
+          </ul>
+        </div>
 
       </div>
-      
-      {/* CSS Animation */}
-      <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 };

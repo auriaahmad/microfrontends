@@ -1,4 +1,4 @@
-// src/bootstrap.js - Host App (Updated)
+// src/bootstrap.js - Host App (Fixed for Profile Route)
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { JWTProvider } from "./JWTContext";
@@ -90,12 +90,11 @@ const App = () => {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
-      {/* Use maxWidth: '100%' instead of fixed width to allow flexibility */}
       <div style={{ maxWidth: '100%', margin: '0 auto' }}>
         
         <JWTProvider>
           
-          {/* Remote Header Only */}
+          {/* Remote Header - Always Load */}
           {remoteComponentsLoaded && RemoteHeader ? (
             <RemoteHeader currentPage={currentPage} onNavigate={navigateTo} />
           ) : (
@@ -119,6 +118,15 @@ const App = () => {
                 animation: 'spin 1s linear infinite',
                 margin: '20px auto'
               }} />
+            </div>
+          )}
+
+          {/* Always Load Hidden AuthProvider for Message Handling */}
+          {remoteComponentsLoaded && RemoteAuthProvider && (
+            <div style={{ display: 'none' }}>
+              <RemoteAuthProvider>
+                <div>Hidden AuthProvider for message handling</div>
+              </RemoteAuthProvider>
             </div>
           )}
 
@@ -260,14 +268,6 @@ const App = () => {
 
         </JWTProvider>
       </div>
-      
-      {/* CSS Animation */}
-      <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 };
