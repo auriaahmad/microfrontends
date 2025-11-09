@@ -7,6 +7,7 @@ module.exports = {
   entry: "./src/index.js",
   devServer: {
     port: 3000,
+    host: '0.0.0.0',
     hot: true,
     liveReload: true,
     headers: {
@@ -32,7 +33,7 @@ module.exports = {
     new ModuleFederationPlugin({
       name: "host",
       remotes: {
-        remoteCounter: "remoteCounter@http://localhost:3001/remoteEntry.js",
+        remoteCounter: "remoteCounter@http://5.175.26.251:3001/remoteEntry.js",
       },
       shared: {
         react: { singleton: true },

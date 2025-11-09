@@ -1,0 +1,374 @@
+<!-- TYPO3 Dashboard with Remote Components - Secure Version -->
+<div class="typo3-dashboard">
+    <!-- Remote Header Container -->
+    <div id="typo3-remote-header-container"></div>
+
+    <h2>🔐 TYPO3 Telecom Authentication System</h2>
+
+    <!-- Authentication Container -->
+    <div id="typo3-auth-component" style="border: 2px solid #2196F3; padding: 20px; margin: 20px 0; border-radius: 8px; background: #f9f9f9;">
+        <p>Loading authentication component...</p>
+    </div>
+
+    <!-- API Testing Container -->
+    <div style="border: 2px solid #ff5722; padding: 20px; margin: 20px 0; border-radius: 8px; background: #fff3e0;">
+        <h3>🧪 TYPO3 API Testing (Secure Proxy)</h3>
+        <div id="typo3-auth-status" style="padding: 10px; background: #ffebee; border-radius: 4px; margin-bottom: 15px;">
+            <strong>Status:</strong> <span style="color: #dc3545;">🔴 Not Authenticated</span>
+        </div>
+        <div style="background: #e3f2fd; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 12px; color: #1976d2;">
+            🔒 <strong>Security:</strong> All API calls are proxied through the remote app. No direct backend access from TYPO3.
+        </div>
+        <button id="typo3-test-api" disabled style="background: #ccc; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: not-allowed; font-size: 16px; font-weight: bold;">
+            Test API via Remote Proxy
+        </button>
+        <div id="typo3-api-response" style="margin-top: 15px; display: none;"></div>
+    </div>
+
+    <!-- Security Info -->
+    <div style="background: #e7f3ff; border: 2px solid #2196F3; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h4 style="color: #2196F3; margin: 0 0 15px 0;">🔒 Security Architecture</h4>
+        <ul style="color: #666; margin: 0; line-height: 1.6; padding-left: 20px;">
+            <li>✅ API calls proxied through secure remote app</li>
+            <li>✅ Authentication managed by remote app only</li>
+            <li>✅ JWT tokens never exposed to TYPO3</li>
+            <li>✅ All communication via secure postMessage API</li>
+            <li>✅ Zero direct backend access from TYPO3</li>
+        </ul>
+    </div>
+</div>
+
+<style>
+.typo3-dashboard {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    font-family: Arial, sans-serif;
+}
+
+#typo3-remote-header-container {
+    margin-bottom: 20px;
+}
+
+.loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #2196F3;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin-left: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+<script>
+// Simplified Auth State (No Token Storage)
+let authState = {
+    isAuthenticated: false,
+    user: null
+    // ✅ No token field - tokens stay in remote
+};
+
+// Pending API requests tracking
+const pendingRequests = new Map();
+
+// Generate unique request ID
+function generateRequestId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// Initialize webpack environment
+function setupWebpackEnvironment() {
+    window.React = window.React || React;
+    window.ReactDOM = window.ReactDOM || ReactDOM;
+
+    window.__webpack_share_scopes__ = window.__webpack_share_scopes__ || {};
+    window.__webpack_share_scopes__.default = window.__webpack_share_scopes__.default || {};
+
+    window.__webpack_share_scopes__.default.react = {
+        "18.0.0": { get: () => () => window.React, loaded: true }
+    };
+
+    window.__webpack_share_scopes__.default["react-dom"] = {
+        "18.0.0": { get: () => () => window.ReactDOM, loaded: true }
+    };
+
+    window.__webpack_init_sharing__ = window.__webpack_init_sharing__ || (() => Promise.resolve());
+}
+
+// Load Remote Components
+async function loadRemoteComponents() {
+    try {
+        console.log('🔄 TYPO3: Loading remote components...');
+
+        // Load remote entry
+        await new Promise((resolve, reject) => {
+            if (window.remoteCounter) {
+                resolve();
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = 'http://5.175.26.251:3001/remoteEntry.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+
+        // Wait for container
+        let attempts = 0;
+        while (!window.remoteCounter && attempts < 20) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            attempts++;
+        }
+
+        if (!window.remoteCounter) throw new Error('Remote container not found');
+
+        // Initialize container
+        await window.remoteCounter.init(window.__webpack_share_scopes__.default);
+
+        // Load Header
+        const headerFactory = await window.remoteCounter.get('./Header');
+        const HeaderModule = headerFactory();
+        const RemoteHeader = HeaderModule.default;
+
+        const headerRoot = ReactDOM.createRoot(document.getElementById('typo3-remote-header-container'));
+        headerRoot.render(React.createElement(RemoteHeader, {
+            currentPage: 'dashboard',
+            onNavigate: (page) => {
+                if (page === 'profile') {
+                    window.location.href = 'http://typo3.local/typo3-remote/prof';
+                }
+            }
+        }));
+
+        // Load Auth Components
+        const authProviderFactory = await window.remoteCounter.get('./AuthProvider');
+        const AuthProvider = authProviderFactory().default;
+
+        const loginComponentFactory = await window.remoteCounter.get('./LoginComponent');
+        const LoginComponent = loginComponentFactory().default;
+
+        const authRoot = ReactDOM.createRoot(document.getElementById('typo3-auth-component'));
+        authRoot.render(
+            React.createElement(AuthProvider, {},
+                React.createElement(LoginComponent)
+            )
+        );
+
+        console.log('✅ TYPO3: Remote components loaded successfully');
+
+    } catch (error) {
+        console.error('❌ TYPO3: Failed to load remote components:', error);
+        document.getElementById('typo3-auth-component').innerHTML =
+            '<p style="color: red;">Failed to load authentication component: ' + error.message + '</p>';
+    }
+}
+
+// Secure API request through remote proxy
+async function makeSecureAPIRequest(endpoint, options = {}) {
+    if (!authState.isAuthenticated) {
+        throw new Error('Not authenticated - please login first');
+    }
+
+    const requestId = generateRequestId();
+    console.log(`📤 TYPO3: Requesting API call: ${endpoint} (ID: ${requestId})`);
+
+    return new Promise((resolve, reject) => {
+        // Store request handlers
+        pendingRequests.set(requestId, { resolve, reject });
+
+        // Set timeout
+        const timeout = setTimeout(() => {
+            pendingRequests.delete(requestId);
+            reject(new Error('API request timeout - remote app may not be responding'));
+        }, 10000);
+
+        // Clear timeout when request completes
+        const originalResolve = resolve;
+        const originalReject = reject;
+
+        pendingRequests.set(requestId, {
+            resolve: (result) => {
+                clearTimeout(timeout);
+                originalResolve(result);
+            },
+            reject: (error) => {
+                clearTimeout(timeout);
+                originalReject(error);
+            }
+        });
+
+        // Send API request to remote app
+        const apiRequest = {
+            type: 'API_REQUEST',
+            payload: {
+                endpoint: endpoint.replace('http://localhost:3002/api', ''), // Strip base URL
+                options: {
+                    method: options.method || 'GET',
+                    body: options.body,
+                    headers: options.headers
+                },
+                requestId
+            }
+        };
+
+        window.postMessage(apiRequest, '*');
+        console.log(`📨 TYPO3: API request sent (ID: ${requestId})`);
+    });
+}
+
+// Initialize secure auth system
+function initializeAuth() {
+    console.log('🚀 TYPO3: Initializing secure auth system...');
+
+    // Listen for auth status updates from remote (NO TOKENS)
+    window.addEventListener('message', (event) => {
+        // Basic origin validation (can be enhanced)
+        if (event.origin !== 'http://5.175.26.251:3001' && event.origin !== window.location.origin) {
+            console.warn(`⚠️ TYPO3: Message from unknown origin: ${event.origin}`);
+            return;
+        }
+
+        if (event.data?.type === 'AUTH_STATUS_UPDATE') {
+            const { isAuthenticated, user } = event.data.payload;
+
+            console.log(`📨 TYPO3: Auth status update - ${isAuthenticated ? 'authenticated' : 'not authenticated'}`);
+
+            authState = {
+                isAuthenticated,
+                user
+                // ✅ No token storage
+            };
+
+            updateAuthUI();
+        }
+
+        // Handle API responses from remote
+        else if (event.data?.type === 'API_RESPONSE') {
+            const { requestId, success, data, error, status } = event.data.payload;
+
+            console.log(`📥 TYPO3: API response received (ID: ${requestId})`);
+
+            const pendingRequest = pendingRequests.get(requestId);
+            if (pendingRequest) {
+                pendingRequests.delete(requestId);
+
+                if (success) {
+                    // Create Response-like object
+                    const response = {
+                        ok: status < 400,
+                        status,
+                        json: () => Promise.resolve(data),
+                        text: () => Promise.resolve(JSON.stringify(data))
+                    };
+                    pendingRequest.resolve(response);
+                } else {
+                    pendingRequest.reject(new Error(error || 'API request failed'));
+                }
+            }
+        }
+    });
+
+    // Request initial auth status from remote
+    setTimeout(() => {
+        console.log('🔍 TYPO3: Requesting initial auth status...');
+        window.postMessage({
+            type: 'REQUEST_AUTH_STATUS',
+            payload: { timestamp: Date.now() }
+        }, '*');
+    }, 500);
+}
+
+// Update UI based on auth state
+function updateAuthUI() {
+    const statusDiv = document.getElementById('typo3-auth-status');
+    const apiButton = document.getElementById('typo3-test-api');
+
+    if (authState.isAuthenticated) {
+        statusDiv.innerHTML = `
+            <strong>Status:</strong> <span style="color: #28a745;">🟢 Authenticated via Remote</span><br>
+            <small><strong>User:</strong> ${authState.user?.username} | <strong>Role:</strong> ${authState.user?.role}</small>
+        `;
+        statusDiv.style.background = '#d4edda';
+
+        apiButton.disabled = false;
+        apiButton.style.background = '#28a745';
+        apiButton.style.cursor = 'pointer';
+        apiButton.onclick = testSecureAPI;
+
+        console.log('✅ TYPO3: API button activated');
+    } else {
+        statusDiv.innerHTML = '<strong>Status:</strong> <span style="color: #dc3545;">🔴 Not Authenticated</span>';
+        statusDiv.style.background = '#ffebee';
+
+        apiButton.disabled = true;
+        apiButton.style.background = '#ccc';
+        apiButton.style.cursor = 'not-allowed';
+        apiButton.onclick = null;
+
+        console.log('🔒 TYPO3: API button disabled');
+    }
+}
+
+// Test API via secure remote proxy
+async function testSecureAPI() {
+    const responseDiv = document.getElementById('typo3-api-response');
+    const apiButton = document.getElementById('typo3-test-api');
+
+    apiButton.innerHTML = 'Testing via Remote... <span class="loading-spinner"></span>';
+    apiButton.disabled = true;
+
+    try {
+        console.log('🧪 TYPO3: Testing API via remote proxy...');
+
+        const response = await makeSecureAPIRequest('http://localhost:3002/api/user/profile');
+
+        if (response.ok) {
+            const data = await response.json();
+
+            responseDiv.innerHTML = `
+                <h4 style="color: #28a745;">✅ Secure API Response (via Remote Proxy):</h4>
+                <div style="background: #e8f5e8; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 12px; color: #2e7d32;">
+                    🔒 <strong>Security Notice:</strong> This data was retrieved through the remote app proxy. No tokens were exposed to TYPO3.
+                </div>
+                <pre style="background: #f8f9fa; padding: 15px; border-radius: 4px; overflow: auto; border: 1px solid #e0e0e0;">${JSON.stringify(data, null, 2)}</pre>
+            `;
+            responseDiv.style.display = 'block';
+
+            console.log('✅ TYPO3: API test successful');
+        } else {
+            throw new Error(`API returned status ${response.status}`);
+        }
+
+    } catch (error) {
+        console.error('❌ TYPO3: API test failed:', error);
+
+        responseDiv.innerHTML = `
+            <h4 style="color: #dc3545;">❌ API Error:</h4>
+            <div style="background: #f8d7da; padding: 10px; border-radius: 4px; color: #721c24;">
+                ${error.message}
+            </div>
+        `;
+        responseDiv.style.display = 'block';
+    } finally {
+        apiButton.innerHTML = 'Test API via Remote Proxy';
+        apiButton.disabled = false;
+    }
+}
+
+// Initialize everything
+console.log('🚀 TYPO3: Starting initialization...');
+setupWebpackEnvironment();
+initializeAuth();
+loadRemoteComponents();
+</script>

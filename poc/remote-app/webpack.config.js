@@ -7,17 +7,18 @@ module.exports = {
   entry: "./src/index.js",
   devServer: {
     port: 3001,
+    host: '0.0.0.0',
     hot: true,
     liveReload: true,
     headers: {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "*",
     },
-    allowedHosts: "all", 
+    allowedHosts: "all"
   },
   output: {
-    publicPath: "http://localhost:3001/",
+    publicPath: "http://5.175.26.251:3001/",
   },
   module: {
     rules: [

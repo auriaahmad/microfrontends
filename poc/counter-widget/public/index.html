@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counter Widget - Code Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .color-picker-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .color-picker-wrapper input[type="color"] {
+            width: 60px;
+            height: 45px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .color-picker-wrapper input[type="text"] {
+            flex: 1;
+        }
+
+        .preview-section {
+            margin-top: 30px;
+            padding: 30px;
+            background: #f5f5f5;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .preview-section h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .code-section {
+            margin-top: 20px;
+        }
+
+        .code-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .code-tab {
+            padding: 10px 20px;
+            background: #e0e0e0;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .code-tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            overflow-x: auto;
+            position: relative;
+            display: none;
+        }
+
+        .code-block.active {
+            display: block;
+        }
+
+        .code-block pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .copy-button:hover {
+            background: #5568d3;
+        }
+
+        .copy-button.copied {
+            background: #4CAF50;
+        }
+
+        .generate-button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 20px;
+        }
+
+        .generate-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+        }
+
+        .info-box h4 {
+            color: #1976D2;
+            margin-bottom: 8px;
+        }
+
+        .info-box p {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Counter Widget</h1>
+            <p>Configure and generate embed code for your counter widget</p>
+        </div>
+
+        <div class="content">
+            <!-- Configuration Panel -->
+            <div class="card">
+                <h2>🎨 Configure Widget</h2>
+
+                <div class="form-group">
+                    <label for="label">Label Text:</label>
+                    <input type="text" id="label" value="Counter" placeholder="Enter label text">
+                </div>
+
+                <div class="form-group">
+                    <label for="initialValue">Initial Value:</label>
+                    <input type="number" id="initialValue" value="0" placeholder="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="color">Primary Color:</label>
+                    <div class="color-picker-wrapper">
+                        <input type="color" id="colorPicker" value="#2196F3">
+                        <input type="text" id="color" value="#2196F3" placeholder="#2196F3">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="size">Size:</label>
+                    <select id="size">
+                        <option value="small">Small</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="large">Large</option>
+                    </select>
+                </div>
+
+                <button class="generate-button" onclick="generateCode()">
+                    ✨ Generate Code
+                </button>
+
+                <div class="info-box">
+                    <h4>📝 How to Use:</h4>
+                    <p>1. Configure your widget using the options above<br>
+                       2. Click "Generate Code" to see the preview<br>
+                       3. Copy the embed code and paste it into your website</p>
+                </div>
+            </div>
+
+            <!-- Preview Panel -->
+            <div class="card">
+                <h2>👁️ Live Preview</h2>
+
+                <div class="preview-section">
+                    <h3>Widget Preview:</h3>
+                    <div id="preview-widget"></div>
+                </div>
+
+                <div class="code-section">
+                    <h3 style="margin-bottom: 15px; color: #333;">📋 Embed Code:</h3>
+
+                    <div class="code-tabs">
+                        <button class="code-tab active" onclick="switchTab('auto')">Auto-Init (Easiest)</button>
+                        <button class="code-tab" onclick="switchTab('manual')">Manual Init</button>
+                    </div>
+
+                    <!-- Auto-Init Code -->
+                    <div id="code-auto" class="code-block active">
+                        <button class="copy-button" onclick="copyCode('auto')">Copy</button>
+                        <pre id="auto-code"></pre>
+                    </div>
+
+                    <!-- Manual Init Code -->
+                    <div id="code-manual" class="code-block">
+                        <button class="copy-button" onclick="copyCode('manual')">Copy</button>
+                        <pre id="manual-code"></pre>
+                    </div>
+
+                    <!-- Explanation boxes -->
+                    <div class="info-box" style="margin-top: 20px;">
+                        <h4>🔄 Auto-Init vs Manual Init - What's the difference?</h4>
+                        <p>
+                            <strong>Auto-Init (Recommended):</strong><br>
+                            • Easiest method - just add HTML with data attributes<br>
+                            • Widget automatically initializes when page loads<br>
+                            • Perfect for WordPress, TYPO3, or any CMS<br>
+                            • Just paste and it works!<br><br>
+
+                            <strong>Manual Init:</strong><br>
+                            • More control - initialize with JavaScript<br>
+                            • Good for dynamic widgets created by code<br>
+                            • You control exactly when widget is created<br>
+                            • Useful for Single Page Apps (SPAs)
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load the widget script -->
+    <script src="/dist/counter-widget.js"></script>
+
+    <script>
+        // Sync color picker and text input
+        document.getElementById('colorPicker').addEventListener('input', function(e) {
+            document.getElementById('color').value = e.target.value;
+        });
+
+        document.getElementById('color').addEventListener('input', function(e) {
+            if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                document.getElementById('colorPicker').value = e.target.value;
+            }
+        });
+
+        // Get widget URL - Use VM1 IP for production deployment
+        const widgetUrl = 'http://5.175.26.251:3004/dist/counter-widget.js';
+
+        // Generate code
+        function generateCode() {
+            const label = document.getElementById('label').value || 'Counter';
+            const initialValue = document.getElementById('initialValue').value || '0';
+            const color = document.getElementById('color').value || '#2196F3';
+            const size = document.getElementById('size').value || 'medium';
+
+            // Generate auto-init code
+            const autoCode = `<!-- Counter Widget - Auto Init -->
+<div class="counter-widget"
+     data-label="${label}"
+     data-initial="${initialValue}"
+     data-color="${color}"
+     data-size="${size}"></div>
+<script src="${widgetUrl}"><\/script>`;
+
+            // Generate manual init code
+            const manualCode = `<!-- Counter Widget - Manual Init -->
+<div id="my-counter"></div>
+<script src="${widgetUrl}"><\/script>
+<script>
+  CounterWidget.init('my-counter', {
+    label: '${label}',
+    initialValue: ${initialValue},
+    color: '${color}',
+    size: '${size}'
+  });
+<\/script>`;
+
+            // Update code blocks
+            document.getElementById('auto-code').textContent = autoCode;
+            document.getElementById('manual-code').textContent = manualCode;
+
+            // Update preview
+            updatePreview(label, parseInt(initialValue), color, size);
+        }
+
+        // Update preview
+        function updatePreview(label, initialValue, color, size) {
+            // Re-render the widget with new options
+            // The widget now properly handles re-rendering on the same element
+            CounterWidget.init('preview-widget', {
+                label: label,
+                initialValue: initialValue,
+                color: color,
+                size: size
+            });
+        }
+
+        // Switch code tabs
+        function switchTab(tab) {
+            // Update tabs
+            document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
+
+            // Update code blocks
+            document.querySelectorAll('.code-block').forEach(b => b.classList.remove('active'));
+            document.getElementById(`code-${tab}`).classList.add('active');
+        }
+
+        // Copy code to clipboard
+        function copyCode(type) {
+            const codeElement = document.getElementById(`${type}-code`);
+            const text = codeElement.textContent;
+
+            navigator.clipboard.writeText(text).then(() => {
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = '✓ Copied!';
+                button.classList.add('copied');
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        // Add real-time preview updates when inputs change
+        document.getElementById('label').addEventListener('input', generateCode);
+        document.getElementById('initialValue').addEventListener('input', generateCode);
+        document.getElementById('color').addEventListener('input', generateCode);
+        document.getElementById('colorPicker').addEventListener('input', generateCode);
+        document.getElementById('size').addEventListener('change', generateCode);
+
+        // Generate initial code on page load
+        window.addEventListener('load', function() {
+            generateCode();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Counter Widget Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .widget-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        .widget-section h2 {
+            color: #555;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Counter Widget Test - VM Cross-Origin</h1>
+
+        <div class="widget-section">
+            <h2>Auto-Init Widget (Blue):</h2>
+            <div class="counter-widget"
+                 data-label="Blue Counter"
+                 data-initial="0"
+                 data-color="#2196F3"
+                 data-size="medium"></div>
+        </div>
+
+        <div class="widget-section">
+            <h2>Auto-Init Widget (Green):</h2>
+            <div class="counter-widget"
+                 data-label="Green Counter"
+                 data-initial="10"
+                 data-color="#4CAF50"
+                 data-size="large"></div>
+        </div>
+
+        <div class="widget-section">
+            <h2>Manual Init Widget (Red):</h2>
+            <div id="manual-counter"></div>
+        </div>
+
+        <p style="margin-top: 30px; color: #666; font-size: 14px;">
+            Open browser console (F12) to see widget loading logs and any errors.
+        </p>
+    </div>
+
+    <!-- Load widget script from VM1 -->
+    <script src="http://5.175.26.251:3004/dist/counter-widget.js"></script>
+
+    <!-- Manual initialization -->
+    <script>
+        window.addEventListener('load', function() {
+            console.log('Page loaded, checking CounterWidget...');
+
+            if (typeof CounterWidget !== 'undefined') {
+                console.log('✅ CounterWidget is available:', CounterWidget);
+
+                // Initialize manual counter
+                CounterWidget.init('manual-counter', {
+                    label: 'Manual Counter',
+                    initialValue: 100,
+                    color: '#F44336',
+                    size: 'medium'
+                });
+            } else {
+                console.error('❌ CounterWidget is not defined!');
+            }
+        });
+    </script>
+</body>
+</html>

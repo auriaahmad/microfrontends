@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(Get-NetTCPConnection -LocalPort 3004 -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -Property LocalAddress, LocalPort, State, OwningProcess)",
+      "Bash(powershell -Command:*)",
+      "Bash(powershell -NoProfile -Command \"Get-NetTCPConnection -LocalPort 3004 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess\")",
+      "Bash(npm run serve:*)",
+      "Bash(npm run build:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout /t 2 /nobreak)",
+      "Bash(nul)",
+      "Bash(npm install:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

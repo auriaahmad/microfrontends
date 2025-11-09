@@ -16,7 +16,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: '*', 
+  origin: true, // Reflects the request origin
   credentials: true
 }));
 app.use(express.json());
@@ -257,8 +257,8 @@ wss.on('connection', (ws) => {
 
 // ============ START HTTP SERVER ============
 
-app.listen(HTTP_PORT, () => {
-  console.log(`HTTP Authentication server running on http://localhost:${HTTP_PORT}`);
+app.listen(HTTP_PORT, '0.0.0.0', () => {
+  console.log(`HTTP Authentication server running on http://0.0.0.0:${HTTP_PORT}`);
   console.log('Available endpoints:');
   console.log('  POST /api/auth/login');
   console.log('  POST /api/auth/refresh');

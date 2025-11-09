@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counter Widget - Test Page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 48px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .widgets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .widget-container {
+            display: flex;
+            justify-content: center;
+        }
+
+        p {
+            color: #555;
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+
+        .note {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .note strong {
+            color: #1976D2;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🧪 Counter Widget Test Page</h1>
+
+        <!-- Auto-Init Example -->
+            <div class="section">
+                <h2>1. Auto-Init Method (Declarative)</h2>
+                <p>Widgets are automatically initialized using data attributes on elements with class
+                    <code>counter-widget</code>.
+                </p>
+
+                <div class="code-block">
+                    &lt;div class="counter-widget"
+                    data-label="Auto Counter"
+                    data-initial="10"
+                    data-color="#2196F3"
+                    data-size="medium"&gt;&lt;/div&gt;
+                    &lt;script src="http://5.175.26.251:3004/dist/counter-widget.js"&gt;&lt;/script&gt;
+                </div>
+
+                <div class="widgets-grid">
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="Small Counter" data-initial="5" data-color="#4CAF50"
+                            data-size="small"></div>
+                    </div>
+
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="Medium Counter" data-initial="10" data-color="#2196F3"
+                            data-size="medium"></div>
+                    </div>
+
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="Large Counter" data-initial="15" data-color="#FF9800"
+                            data-size="large"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manual Init Example -->
+            <div class="section">
+                <h2>2. Manual Init Method (Programmatic)</h2>
+                <p>Widgets are initialized programmatically using JavaScript API for more control.</p>
+
+                <div class="code-block">
+                    &lt;div id="manual-counter"&gt;&lt;/div&gt;
+                    &lt;script src="http://5.175.26.251:3004/dist/counter-widget.js"&gt;&lt;/script&gt;
+                    &lt;script&gt;
+                    CounterWidget.init('manual-counter', {
+                    label: 'Manual Counter',
+                    initialValue: 100,
+                    color: '#E91E63',
+                    size: 'large'
+                    });
+                    &lt;/script&gt;
+                </div>
+
+                <div class="widgets-grid">
+                    <div class="widget-container">
+                        <div id="manual-counter-1"></div>
+                    </div>
+
+                    <div class="widget-container">
+                        <div id="manual-counter-2"></div>
+                    </div>
+
+                    <div class="widget-container">
+                        <div id="manual-counter-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Colors Example -->
+            <div class="section">
+                <h2>3. Custom Colors</h2>
+                <p>Different color schemes for various use cases.</p>
+
+                <div class="widgets-grid">
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="Blue Theme" data-initial="0" data-color="#2196F3"
+                            data-size="medium"></div>
+                    </div>
+
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="Green Theme" data-initial="0" data-color="#4CAF50"
+                            data-size="medium"></div>
+                    </div>
+
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="Orange Theme" data-initial="0" data-color="#FF9800"
+                            data-size="medium"></div>
+                    </div>
+
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="Red Theme" data-initial="0" data-color="#F44336"
+                            data-size="medium"></div>
+                    </div>
+
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="Purple Theme" data-initial="0" data-color="#9C27B0"
+                            data-size="medium"></div>
+                    </div>
+
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="Teal Theme" data-initial="0" data-color="#009688"
+                            data-size="medium"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real-World Example -->
+            <div class="section">
+                <h2>4. Real-World Example - Statistics Dashboard</h2>
+                <p>A typical use case showing multiple counters for a statistics dashboard.</p>
+
+                <div class="widgets-grid">
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="Total Users" data-initial="1250" data-color="#667eea"
+                            data-size="medium"></div>
+                    </div>
+
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="Active Sessions" data-initial="42" data-color="#4CAF50"
+                            data-size="medium"></div>
+                    </div>
+
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="Page Views" data-initial="8760" data-color="#2196F3"
+                            data-size="medium"></div>
+                    </div>
+
+                    <div class="widget-container">
+                        <div class="counter-widget" data-label="API Calls" data-initial="15384" data-color="#FF9800"
+                            data-size="medium"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="note">
+                <strong>Note:</strong> This test page demonstrates all features of the Counter Widget.
+                All widgets on this page are fully functional with increment, decrement, and reset buttons.
+                Open the browser console to see initialization logs.
+            </div>
+    </div>
+
+    <!-- Load the widget script - Use VM IP for cross-VM access -->
+    <script src="http://5.175.26.251:3004/dist/counter-widget.js"></script>
+
+    <!-- Manual initialization for programmatic counters -->
+    <script>
+        // Wait for widget script to load
+        window.addEventListener('load', function () {
+            // Initialize manual counters
+            CounterWidget.init('manual-counter-1', {
+                label: 'Clicks',
+                initialValue: 100,
+                color: '#E91E63',
+                size: 'small'
+            });
+
+            CounterWidget.init('manual-counter-2', {
+                label: 'Downloads',
+                initialValue: 500,
+                color: '#9C27B0',
+                size: 'medium'
+            });
+
+            CounterWidget.init('manual-counter-3', {
+                label: 'Revenue',
+                initialValue: 1000,
+                color: '#FF5722',
+                size: 'large'
+            });
+
+            console.log('✅ All manual counters initialized!');
+        });
+    </script>
+</body>
+
+</html>
