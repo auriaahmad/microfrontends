@@ -18,7 +18,7 @@ module.exports = {
     allowedHosts: "all"
   },
   output: {
-    publicPath: "http://5.175.26.251:3001/",
+    publicPath: "http://localhost:3001/",
   },
   module: {
     rules: [

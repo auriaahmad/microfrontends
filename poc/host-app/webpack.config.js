@@ -33,7 +33,7 @@ module.exports = {
     new ModuleFederationPlugin({
       name: "host",
       remotes: {
-        remoteCounter: "remoteCounter@http://5.175.26.251:3001/remoteEntry.js",
+        remoteCounter: "remoteCounter@localhost:3001/remoteEntry.js",
       },
       shared: {
         react: { singleton: true },
