@@ -81,12 +81,39 @@ export class RemoteLoaderService {
     try {
       const container = await this.loadRemoteEntry(remoteUrl, scope);
 
-      // For non-webpack hosts, we need to provide a minimal shared scope
-      if (typeof __webpack_share_scopes__ === 'undefined') {
+      // For non-webpack hosts, we need to provide a shared scope with React
+      if (typeof window.__webpack_share_scopes__ === 'undefined') {
         window.__webpack_share_scopes__ = { default: {} };
       }
 
-      await container.init(window.__webpack_share_scopes__.default);
+      // Ensure shared scope has React and ReactDOM from Angular's imports
+      const sharedScope = window.__webpack_share_scopes__.default;
+
+      // Import React dynamically if not in shared scope
+      if (!sharedScope.react) {
+        const reactModule = await import('react');
+        const reactDomModule = await import('react-dom');
+
+        sharedScope.react = {
+          '19.2.0': {
+            get: () => Promise.resolve(() => reactModule),
+            loaded: true,
+            from: 'angular-app'
+          }
+        };
+
+        sharedScope['react-dom'] = {
+          '19.2.0': {
+            get: () => Promise.resolve(() => reactDomModule),
+            loaded: true,
+            from: 'angular-app'
+          }
+        };
+
+        console.log('📦 RemoteLoader: Added React to shared scope from Angular app');
+      }
+
+      await container.init(sharedScope);
       const factory = await container.get(module);
       const Module = factory();
 

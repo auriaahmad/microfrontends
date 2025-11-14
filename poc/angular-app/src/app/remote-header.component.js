@@ -1,4 +1,5 @@
-import { Component, ElementRef, Inject } from '@angular/core';
+import { Component, ElementRef } from '@angular/core';
+import { Router } from '@angular/router';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { RemoteLoaderService } from './remote-loader.service';
@@ -14,13 +15,14 @@ import { RemoteLoaderService } from './remote-loader.service';
   `]
 })
 export class RemoteHeaderComponent {
-  static parameters = [ElementRef, RemoteLoaderService];
+  static parameters = [ElementRef, RemoteLoaderService, Router];
 
   reactRoot = null;
 
-  constructor(elementRef, remoteLoader) {
+  constructor(elementRef, remoteLoader, router) {
     this.elementRef = elementRef;
     this.remoteLoader = remoteLoader;
+    this.router = router;
   }
 
   async ngOnInit() {
@@ -37,9 +39,30 @@ export class RemoteHeaderComponent {
       // Get the container element
       const container = this.elementRef.nativeElement.firstChild;
 
-      // Create React root and render
+      // Determine current page based on route
+      const currentPath = this.router.url;
+      const currentPage = currentPath === '/profile' ? 'profile' : 'dashboard';
+
+      // Navigation handler
+      const handleNavigate = (page) => {
+        console.log('🔵 Angular: Header navigation clicked:', page);
+        if (page === 'dashboard') {
+          this.router.navigate(['/']);
+        } else if (page === 'profile') {
+          this.router.navigate(['/profile']);
+        }
+      };
+
+      // Create React root and render with props
       this.reactRoot = ReactDOM.createRoot(container);
-      this.reactRoot.render(React.createElement(ReactComponent));
+      this.reactRoot.render(
+        React.createElement(ReactComponent, {
+          currentPage: currentPage,
+          onNavigate: handleNavigate
+        })
+      );
+
+      console.log('🔵 Angular: Header rendered with currentPage:', currentPage);
 
     } catch (error) {
       console.error('Failed to load remote Header component:', error);
