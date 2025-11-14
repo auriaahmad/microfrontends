@@ -7,7 +7,9 @@ import { RemoteHeaderComponent } from './remote-header.component';
 import { RemoteLoginComponent } from './remote-login.component';
 import { DashboardComponent } from './dashboard.component';
 import { ProfileComponent } from './profile.component';
+import { ApiTestComponent } from './api-test.component';
 import { RemoteLoaderService } from './remote-loader.service';
+import { AuthService } from './auth.service';
 
 // Routes configuration - no need to import Routes type in JS
 const routes = [
@@ -23,13 +25,14 @@ const routes = [
     RemoteHeaderComponent,
     RemoteLoginComponent,
     DashboardComponent,
-    ProfileComponent
+    ProfileComponent,
+    ApiTestComponent
   ],
   imports: [
     BrowserModule,
     RouterModule.forRoot(routes)
   ],
-  providers: [RemoteLoaderService],
+  providers: [RemoteLoaderService, AuthService],
   bootstrap: [App]
 })
 export class AppModule {}

@@ -13,14 +13,17 @@ import { Component } from '@angular/core';
 
         <!-- Login Component -->
         <div style="margin-bottom: 40px; padding: 20px; border: 2px solid #1976d2; border-radius: 8px; background: white;">
-          <h2 style="color: #424242; margin-bottom: 15px;">Authentication</h2>
+          <h2 style="color: #424242; margin-bottom: 15px;">🔐 Authentication</h2>
           <p style="color: #666; margin-bottom: 20px;">Login component from http://localhost:3001</p>
           <app-remote-login></app-remote-login>
         </div>
 
+        <!-- Angular Native API Test Component -->
+        <app-api-test></app-api-test>
+
         <!-- Counter Component -->
-        <div style="padding: 20px; border: 2px solid #4CAF50; border-radius: 8px; background: white;">
-          <h2 style="color: #424242; margin-bottom: 15px;">Remote React Counter Component</h2>
+        <div style="padding: 20px; border: 2px solid #4CAF50; border-radius: 8px; background: white; margin-top: 40px;">
+          <h2 style="color: #424242; margin-bottom: 15px;">🔢 Remote React Counter Component</h2>
           <p style="color: #666; margin-bottom: 20px;">Counter from http://localhost:3001</p>
           <app-react-wrapper></app-react-wrapper>
         </div>
