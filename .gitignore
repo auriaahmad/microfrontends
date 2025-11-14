@@ -1,1 +1,11 @@
 node_modules
+
+# Angular
+poc/angular-app/.angular/
+poc/angular-app/dist/
+poc/angular-app/.vscode/
+poc/angular-app/node_modules/
+poc/angular-app/npm-debug.log
+poc/angular-app/yarn-error.log
+poc/angular-app/.DS_Store
+poc/angular-app/Thumbs.db
